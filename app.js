@@ -15,6 +15,11 @@ function salvarServicos(servicos) {
   filtrarServicos();
 }
 
+function obterDataHoraAtual() {
+  const agora = new Date();
+  return agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
 function abrirModal() {
   document.getElementById('modal-servico').style.display = 'flex';
 }
@@ -42,8 +47,7 @@ function salvarServicoFormulario(event) {
     prioridade: prioridade,
     observacoes: observacoes,
     status: 'Pendente',
-    dataInicio: null,
-    justificativas: [],
+    historicoExecucao: [], // Linha do tempo de todas as ações
     conclusaoInfo: null,
     fotos: [],
     data: new Date().toLocaleDateString('pt-BR')
@@ -105,8 +109,9 @@ function renderizarServicos(servicos) {
   }
 
   container.innerHTML = servicos.map(s => {
-    const jaFoiPausado = s.justificativas && s.justificativas.length > 0;
-    const rotuloIniciar = jaFoiPausado ? '▶️ Retomar' : '▶️ Iniciar';
+    const historico = s.historicoExecucao || [];
+    const jáIniciouAlp = historico.length > 0;
+    const rotuloIniciar = jáIniciouAlp ? '▶️ Retomar' : '▶️ Iniciar';
 
     return `
     <div class="service-card">
@@ -117,20 +122,27 @@ function renderizarServicos(servicos) {
       <p class="service-info">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data}</p>
       <p class="service-priority">Prioridade: <strong>${s.prioridade}</strong></p>
       
-      ${s.dataInicio ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #1e7e34; background: #eafaf1; padding: 6px; border-radius: 6px;">⏱️ <strong>Iniciado em:</strong> ${s.dataInicio}</p>` : ''}
-
       ${s.observacoes ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #444; background: #f9f9f9; padding: 6px; border-radius: 6px;">📝 <strong>Obs:</strong> ${s.observacoes}</p>` : ''}
       
-      ${jaFoiPausado ? `
-        <div style="font-size: 0.8rem; margin-top: 6px; color: #c0392b; background: #fdf0ed; padding: 6px; border-radius: 6px;">
-          <strong>⚠️ Histórico de Pausas:</strong>
-          ${s.justificativas.map(j => `<div>• ${j.data}: ${j.motivo}</div>`).join('')}
+      <!-- LINHA DO TEMPO DE REGISTROS (INÍCIO, PAUSA, RETOMADA) -->
+      ${historico.length > 0 ? `
+        <div style="font-size: 0.8rem; margin-top: 8px; color: #2c3e50; background: #f1f5f9; padding: 8px; border-radius: 6px; border-left: 3px solid #2e5a3c;">
+          <strong>⏱️ Registros de Execução:</strong>
+          <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 3px;">
+            ${historico.map(h => `
+              <div>
+                <strong>${h.icone} ${h.acao}:</strong> ${h.dataHora}
+                ${h.detalhes ? `<span style="color: #c0392b;"> (${h.detalhes})</span>` : ''}
+              </div>
+            `).join('')}
+          </div>
         </div>
       ` : ''}
 
+      <!-- RELATÓRIO DE CONCLUSÃO -->
       ${s.conclusaoInfo ? `
-        <div style="font-size: 0.8rem; margin-top: 6px; color: #1e7e34; background: #eafaf1; padding: 6px; border-radius: 6px;">
-          <strong>✅ Relatório de Conclusão (${s.dataConclusao || ''}):</strong>
+        <div style="font-size: 0.8rem; margin-top: 8px; color: #1e7e34; background: #eafaf1; padding: 8px; border-radius: 6px; border-left: 3px solid #27ae60;">
+          <strong>✅ Relatório de Conclusão:</strong>
           <div>${s.conclusaoInfo}</div>${s.fotos && s.fotos.length > 0 ? `
             <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
               ${s.fotos.map(f => `<img src="${f}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60;">`).join('')}
@@ -153,9 +165,19 @@ function iniciarServico(id) {
   let servicos = carregarServicos();
   const item = servicos.find(s => s.id === id);
   if (item) {
+    if (!item.historicoExecucao) item.historicoExecucao = [];
+    
+    const ehRetomada = item.historicoExecucao.length > 0;
+    const acaoTexto = ehRetomada ? 'Retomou atividade' : 'Iniciou atividade';
+    const iconeTexto = ehRetomada ? '▶️' : '🚀';
+
     item.status = 'Em execução';
-    const agora = new Date();
-    item.dataInicio = agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    item.historicoExecucao.push({
+      acao: acaoTexto,
+      icone: iconeTexto,
+      dataHora: obterDataHoraAtual()
+    });
+
     salvarServicos(servicos);
   }
 }
@@ -182,11 +204,15 @@ function confirmarPausaServico() {
   const item = servicos.find(s => s.id === servicoPendentePausaId);
   if (item) {
     item.status = 'Pendente';
-    if (!item.justificativas) item.justificativas = [];
-    item.justificativas.push({
-      data: new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
-      motivo: motivo
+    if (!item.historicoExecucao) item.historicoExecucao = [];
+
+    item.historicoExecucao.push({
+      acao: 'Pausou atividade',
+      icone: '⏸️',
+      dataHora: obterDataHoraAtual(),
+      detalhes: motivo
     });
+
     salvarServicos(servicos);
   }
   fecharModalJustificativa();
@@ -246,7 +272,15 @@ function confirmarConclusaoServico(event) {
     item.status = 'Concluído';
     item.conclusaoInfo = relatorio;
     item.fotos = imagensTempConclusao;
-    item.dataConclusao = new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    
+    if (!item.historicoExecucao) item.historicoExecucao = [];
+
+    item.historicoExecucao.push({
+      acao: 'Concluiu atividade',
+      icone: '🏁',
+      dataHora: obterDataHoraAtual()
+    });
+
     salvarServicos(servicos);
   }
 
