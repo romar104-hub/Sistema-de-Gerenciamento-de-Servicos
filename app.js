@@ -1,20 +1,35 @@
 const STORAGE_KEY = 'criatorio_marques_servicos';
 
-// Carregar serviços do LocalStorage
 function carregarServicos() {
   const dados = localStorage.getItem(STORAGE_KEY);
   return dados ? JSON.parse(dados) : [];
 }
 
-// Salvar serviços no LocalStorage e atualizar tela
 function salvarServicos(servicos) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(servicos));
   atualizarDashboard();
   renderizarServicos();
 }
 
-// Criar novo serviço
-function adicionarServico(nome, local, responsavel, prioridade) {
+// Controladores da Ficha (Modal)
+function abrirModal() {
+  document.getElementById('modal-servico').style.display = 'flex';
+}
+
+function fecharModal() {
+  document.getElementById('modal-servico').style.display = 'none';
+  document.getElementById('form-servico').reset();
+}
+
+function salvarServicoFormulario(event) {
+  event.preventDefault();
+
+  const nome = document.getElementById('nome-servico').value;
+  const local = document.getElementById('local-servico').value || 'Geral';
+  const responsavel = document.getElementById('responsavel-servico').value || 'Não atribuído';
+  const prioridade = document.getElementById('prioridade-servico').value;
+  const status = document.getElementById('status-servico').value;
+
   const servicos = carregarServicos();
   const novoServico = {
     id: Date.now(),
@@ -22,27 +37,15 @@ function adicionarServico(nome, local, responsavel, prioridade) {
     local: local,
     responsavel: responsavel,
     prioridade: prioridade,
-    data: new Date().toLocaleDateString('pt-BR'),
-    status: 'Pendente'
+    status: status,
+    data: new Date().toLocaleDateString('pt-BR')
   };
-  
+
   servicos.unshift(novoServico);
   salvarServicos(servicos);
+  fecharModal();
 }
 
-// Função chamada pelo botão + Novo
-function abrirModal() {
-  const nome = prompt("Nome do Serviço (ex: Vacinação, Conserto de Cerca):");
-  if (!nome || nome.trim() === "") return;
-
-  const local = prompt("Local da Propriedade (ex: Galinheiro, Pasto 1):") || "Geral";
-  const responsavel = prompt("Responsável pelo Serviço:") || "Não atribuído";
-  const prioridade = prompt("Prioridade (Baixa, Normal, Alta):") || "Normal";
-
-  adicionarServico(nome, local, responsavel, prioridade);
-}
-
-// Exibir lista de serviços na interface
 function renderizarServicos(lista = null) {
   const servicos = lista || carregarServicos();
   const container = document.getElementById('lista-servicos');
@@ -62,14 +65,13 @@ function renderizarServicos(lista = null) {
       <p class="service-info">📍 ${s.local} | 👤 ${s.responsavel} | 📅 ${s.data}</p>
       <p class="service-priority">Prioridade: <strong>${s.prioridade}</strong></p>
       <div class="service-actions" style="margin-top: 10px; display: flex; gap: 8px;">
-        <button onclick="alternarStatus(${s.id})" class="btn-secondary" style="padding: 4px 8px;">Mudar Status</button>
-        <button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 4px 8px; background: #ff4d4d; color: white; border: none; border-radius: 6px;">Excluir</button>
+        <button onclick="alternarStatus(${s.id})" class="btn-secondary" style="padding: 6px 10px;">Mudar Status</button>
+        <button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 10px; background: #ff4d4d; color: white; border: none; border-radius: 6px;">Excluir</button>
       </div>
     </div>
   `).join('');
 }
 
-// Alternar status da tarefa (Pendente -> Em execução -> Concluído)
 function alternarStatus(id) {
   let servicos = carregarServicos();
   const index = servicos.findIndex(s => s.id === id);
@@ -81,7 +83,6 @@ function alternarStatus(id) {
   }
 }
 
-// Filtrar serviços na busca
 function filtrarServicos() {
   const termo = document.getElementById('search-input').value.toLowerCase();
   const servicos = carregarServicos();
@@ -93,7 +94,6 @@ function filtrarServicos() {
   renderizarServicos(filtrados);
 }
 
-// Excluir serviço
 function excluirServico(id) {
   if (confirm('Deseja realmente excluir este serviço?')) {
     let servicos = carregarServicos();
@@ -102,7 +102,6 @@ function excluirServico(id) {
   }
 }
 
-// Backup (Exportar)
 function exportarBackup() {
   const dados = localStorage.getItem(STORAGE_KEY) || '[]';
   const blob = new Blob([dados], { type: 'application/json' });
@@ -114,7 +113,6 @@ function exportarBackup() {
   URL.revokeObjectURL(url);
 }
 
-// Backup (Importar)
 function importarBackup(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -134,7 +132,6 @@ function importarBackup(event) {
   reader.readAsText(file);
 }
 
-// Métricas do Dashboard
 function atualizarDashboard() {
   const servicos = carregarServicos();
   if (document.getElementById('count-pendentes')) {
