@@ -93,7 +93,16 @@ function atualizarDashboard() {
     document.getElementById('count-concluidos').innerText = servicos.filter(s => s.status === 'Concluído').length;
   }
 }
+function abrirModal() {
+  const nome = prompt("Nome do Serviço (ex: Vacinação, Conserto de Cerca):");
+  if (!nome) return;
 
+  const local = prompt("Local da Propriedade (ex: Galinheiro, Pasto 1):") || "Geral";
+  const responsavel = prompt("Responsável pelo Serviço:") || "Não atribuído";
+  const prioridade = prompt("Prioridade (Baixa, Normal, Alta):") || "Normal";
+
+  adicionarServico(nome, local, responsavel, prioridade);
+}
 document.addEventListener('DOMContentLoaded', () => {
   atualizarDashboard();
   renderizarServicos();
