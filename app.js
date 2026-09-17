@@ -1,3 +1,40 @@
+// Buscar Temperatura e Clima em tempo real para Belém do São Francisco - PE (Lat: -8.7531, Lon: -38.9667)
+async function buscarClimaBelem() {
+  try {
+    const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-8.7531&longitude=-38.9667&current_weather=true');
+    const data = await response.json();
+    
+    if (data && data.current_weather) {
+      const temp = Math.round(data.current_weather.temperature);
+      const code = data.current_weather.weathercode;
+      
+      document.getElementById('weather-temp').innerText = `${temp}°C`;
+      
+      let desc = "Ensolarado";
+      let icon = "☀️";
+      
+      if (code === 0) { desc = "Céu Limpo"; icon = "☀️"; }
+      else if (code >= 1 && code <= 3) { desc = "Parcialmente Nublado"; icon = "⛅"; }
+      else if (code >= 45 && code <= 48) { desc = "Nevoeiro"; icon = "🌫️"; }
+      else if (code >= 51 && code <= 67) { desc = "Chuva Leve"; icon = "🌧️"; }
+      else if (code >= 80 && code <= 99) { desc = "Pancadas / Chuva"; icon = "⛈️"; }
+      
+      document.getElementById('weather-desc').innerText = desc;
+      document.getElementById('weather-icon').innerText = icon;
+    }
+  } catch (error) {
+    document.getElementById('weather-temp').innerText = "32°C";
+    document.getElementById('weather-desc').innerText = "Ensolarado";
+    document.getElementById('weather-icon').innerText = "☀️";
+  }
+}
+
+// Lembre-se de adicionar 'buscarClimaBelem();' dentro da chamada do DOMContentLoaded:
+document.addEventListener('DOMContentLoaded', () => {
+  buscarClimaBelem();
+  atualizarDashboard();
+  filtrarServicos();
+});
 const STORAGE_KEY = 'criatorio_marques_servicos';
 let servicoPendentePausaId = null;
 let servicoConclusaoId = null;
