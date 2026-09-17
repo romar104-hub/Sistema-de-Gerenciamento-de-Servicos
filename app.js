@@ -47,7 +47,7 @@ function salvarServicoFormulario(event) {
     prioridade: prioridade,
     observacoes: observacoes,
     status: 'Pendente',
-    historicoExecucao: [], // Linha do tempo de todas as ações
+    historicoExecucao: [],
     conclusaoInfo: null,
     fotos: [],
     data: new Date().toLocaleDateString('pt-BR')
@@ -60,7 +60,7 @@ function salvarServicoFormulario(event) {
 
 function filtrarPorStatus(status) {
   if (filtroStatusAtual === status) {
-    filtroStatusAtual = null; // Clicar novamente limpa o filtro
+    filtroStatusAtual = null;
   } else {
     filtroStatusAtual = status;
   }
@@ -110,8 +110,8 @@ function renderizarServicos(servicos) {
 
   container.innerHTML = servicos.map(s => {
     const historico = s.historicoExecucao || [];
-    const jáIniciouAlp = historico.length > 0;
-    const rotuloIniciar = jáIniciouAlp ? '▶️ Retomar' : '▶️ Iniciar';
+    const jaIniciouAlgo = historico.length > 0;
+    const rotuloIniciar = jaIniciouAlgo ? '▶️ Retomar' : '▶️ Iniciar';
 
     return `
     <div class="service-card">
@@ -124,7 +124,7 @@ function renderizarServicos(servicos) {
       
       ${s.observacoes ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #444; background: #f9f9f9; padding: 6px; border-radius: 6px;">📝 <strong>Obs:</strong> ${s.observacoes}</p>` : ''}
       
-      <!-- LINHA DO TEMPO DE REGISTROS (INÍCIO, PAUSA, RETOMADA) -->
+      <!-- HISTÓRICO DE EXECUÇÃO -->
       ${historico.length > 0 ? `
         <div style="font-size: 0.8rem; margin-top: 8px; color: #2c3e50; background: #f1f5f9; padding: 8px; border-radius: 6px; border-left: 3px solid #2e5a3c;">
           <strong>⏱️ Registros de Execução:</strong>
@@ -139,26 +139,96 @@ function renderizarServicos(servicos) {
         </div>
       ` : ''}
 
-      <!-- RELATÓRIO DE CONCLUSÃO -->
+      <!-- RELATÓRIO DE CONCLUSÃO COM FOTOS AMPLIAVEIS -->
       ${s.conclusaoInfo ? `
         <div style="font-size: 0.8rem; margin-top: 8px; color: #1e7e34; background: #eafaf1; padding: 8px; border-radius: 6px; border-left: 3px solid #27ae60;">
           <strong>✅ Relatório de Conclusão:</strong>
           <div>${s.conclusaoInfo}</div>${s.fotos && s.fotos.length > 0 ? `
             <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
-              ${s.fotos.map(f => `<img src="${f}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60;">`).join('')}
+              ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60;" title="Clique para ampliar">`).join('')}
             </div>
           ` : ''}
         </div>
       ` : ''}
 
-      <div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap;">
+      <div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
         ${s.status === 'Pendente' ? `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">${rotuloIniciar}</button>` : ''}
         ${s.status === 'Em execução' ? `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">⏸️ Pausar (Pendente)</button>` : ''}
         ${s.status !== 'Concluído' ? `<button onclick="solicitarConclusaoServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>` : ''}
+        
+        ${s.status === 'Concluído' ? `<button onclick="abrirRelatorioCompleto(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #2980b9; color: white; border: none; border-radius: 6px; cursor: pointer;">📄 Resumo / Relatório</button>` : ''}
+
         <button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>
       </div>
     </div>
   `}).join('');
+}
+
+function abrirRelatorioCompleto(id) {
+  const servicos = carregarServicos();
+  const s = servicos.find(item => item.id === id);
+  if (!s) return;
+
+  const container = document.getElementById('conteudo-relatorio');
+  const historico = s.historicoExecucao || [];
+
+  container.innerHTML = `
+    <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+      <h4 style="margin: 0 0 6px 0; color: #2e5a3c; font-size: 1.1rem;">${s.nome.toUpperCase()}</h4>
+      <p style="margin: 0; font-size: 0.9rem; color: #64748b;">📍 <strong>Local:</strong> ${s.local} | 👤 <strong>Responsável:</strong> ${s.responsavel}</p>
+      <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #64748b;">📅 <strong>Criação:</strong> ${s.data} | ⚡ <strong>Prioridade:</strong> ${s.prioridade}</p>
+    </div>
+
+    ${s.observacoes ? `
+      <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <strong>📝 Orientações / Observações Iniciais:</strong>
+        <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: #334155;">${s.observacoes}</p>
+      </div>
+    ` : ''}
+
+    <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+      <strong>⏱️ Linha do Tempo e Histórico do Serviço:</strong>
+      <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem;">
+        ${historico.length > 0 ? historico.map(h => `
+          <div style="padding: 4px 0; border-bottom: 1px dashed #e2e8f0;">
+            <strong>${h.icone}${h.acao}:</strong> ${h.dataHora}${h.detalhes ? `<div style="color: #c0392b; margin-top: 2px;">Motivo: ${h.detalhes}</div>` : ''}
+          </div>
+        `).join('') : '<div style="color: #94a3b8;">Nenhum evento registrado.</div>'}
+      </div>
+    </div>
+
+    <div style="background: #f0fdf4; padding: 10px; border-radius: 6px; border: 1px solid #bbf7d0;">
+      <strong style="color: #166534;">✅ Descrição e Parecer da Conclusão:</strong>
+      <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #15803d;">${s.conclusaoInfo || 'Sem descrição.'}</p>
+    </div>
+
+    ${s.fotos && s.fotos.length > 0 ? `
+      <div>
+        <strong>📸 Comprovantes e Fotos da Execução (Clique para ampliar):</strong>
+        <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
+          ${s.fotos.map(f => `
+            <img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 90px; height: 90px; object-fit: cover; border-radius: 8px; border: 2px solid #27ae60;" title="Clique para ampliar">
+          `).join('')}
+        </div>
+      </div>
+    ` : '<p style="font-size: 0.85rem; color: #64748b; margin: 0;">Nenhuma foto anexada a esta conclusão.</p>'}
+  `;
+
+  document.getElementById('modal-relatorio').style.display = 'flex';
+}
+
+function fecharModalRelatorio() {
+  document.getElementById('modal-relatorio').style.display = 'none';
+}
+
+function ampliarImagem(src) {
+  document.getElementById('img-ampliada').src = src;
+  document.getElementById('modal-zoom-imagem').style.display = 'flex';
+}
+
+function fecharZoomImagem() {
+  document.getElementById('modal-zoom-imagem').style.display = 'none';
+  document.getElementById('img-ampliada').src = '';
 }
 
 function iniciarServico(id) {
