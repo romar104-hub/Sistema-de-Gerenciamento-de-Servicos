@@ -33,16 +33,70 @@
       </div>
     </section>
 
-    <!-- Lista de Serviços -->
+    <!-- Cabeçalho da Lista -->
     <section class="services-header">
       <h3>Serviços recentes</h3>
       <button class="btn-primary" onclick="abrirModal()">+ Novo</button>
     </section>
 
+    <!-- Lista de Serviços -->
     <div id="lista-servicos" class="services-list">
       <!-- Inserido dinamicamente via JS -->
     </div>
   </main>
+
+  <!-- FICHA / MODAL DE CADASTRO DE SERVIÇO -->
+  <div id="modal-servico" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📋 Ficha de Serviço</h3>
+        <button type="button" class="btn-close" onclick="fecharModal()">✕</button>
+      </div>
+      
+      <form id="form-servico" onsubmit="salvarServicoFormulario(event)">
+        <div class="form-group">
+          <label for="nome-servico">Nome do Serviço *</label>
+          <input type="text" id="nome-servico" placeholder="Ex: Vacinação de Boas, Reparo de Cerca" required>
+        </div>
+
+        <div class="form-group">
+          <label for="local-servico">Local da Propriedade</label>
+
+          <input type="text" id="local-servico" placeholder="Ex: Curral, Pasto 1, Galinheiro">
+        </div>
+
+        <div class="form-group">
+          <label for="responsavel-servico">Responsável</label>
+          <input type="text" id="responsavel-servico" placeholder="Ex: João, Romerio">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="prioridade-servico">Prioridade</label>
+            <select id="prioridade-servico">
+              <option value="Normal">Normal</option>
+              <option value="Alta">Alta</option>
+              <option value="Baixa">Baixa</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="status-servico">Status Inicial</label>
+            <select id="status-servico">
+              <option value="Pendente">Pendente</option>
+              <option value="Em execução">Em execução</option>
+              <option value="Concluído">Concluído</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-cancel" onclick="fecharModal()">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar Ficha</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
