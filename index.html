@@ -7,6 +7,11 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#2e5a3c">
+  <style>
+    .card { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+    .card:hover { transform: translateY(-2px); }
+    .card.ativo { border: 2px solid #2e5a3c; background-color: #f0f7f2; }
+  </style>
 </head>
 <body>
 
@@ -17,9 +22,18 @@
 
   <main class="container">
     <section class="cards-grid">
-      <div class="card"><span class="num" id="count-pendentes">0</span><span class="label">pendentes</span></div>
-      <div class="card"><span class="num" id="count-execucao">0</span><span class="label">em execução</span></div>
-      <div class="card"><span class="num" id="count-concluidos">0</span><span class="label">concluídos</span></div>
+      <div class="card" id="card-pendentes" onclick="filtrarPorStatus('Pendente')">
+        <span class="num" id="count-pendentes">0</span>
+        <span class="label">pendentes</span>
+      </div>
+      <div class="card" id="card-execucao" onclick="filtrarPorStatus('Em execução')">
+        <span class="num" id="count-execucao">0</span>
+        <span class="label">em execução</span>
+      </div>
+      <div class="card" id="card-concluidos" onclick="filtrarPorStatus('Concluído')">
+        <span class="num" id="count-concluidos">0</span>
+        <span class="label">concluídos</span>
+      </div>
     </section>
 
     <section class="toolbar">
@@ -32,7 +46,7 @@
     </section>
 
     <section class="services-header">
-      <h3>Serviços recentes</h3>
+      <h3 id="titulo-lista">Serviços recentes</h3>
       <button class="btn-primary" onclick="abrirModal()">+ Novo</button>
     </section>
 
