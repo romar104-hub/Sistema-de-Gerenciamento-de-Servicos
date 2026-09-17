@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#315c3a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<title>Criatório Marques — Serviços</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+<header class="topbar">
+  <div><small>CRIATÓRIO MARQUES</small><h1>Serviços da propriedade</h1></div>
+  <button class="icon-btn" id="installBtn" hidden>＋</button>
+</header>
+
+<main>
+<section id="dashboard" class="screen active">
+  <div class="stats">
+    <button data-filter="Pendente"><b id="pendingCount">0</b><span>pendentes</span></button>
+    <button data-filter="Em execução"><b id="doingCount">0</b><span>em execução</span></button>
+    <button data-filter="Atrasado"><b id="lateCount">0</b><span>atrasados</span></button>
+    <button data-filter="Concluído"><b id="doneCount">0</b><span>concluídos</span></button>
+  </div>
+  <div class="section-head"><h2>Serviços recentes</h2><button class="link" id="newFromHome">+ Novo</button></div>
+  <div id="homeList" class="cards"></div>
+</section>
+
+<section id="services" class="screen">
+  <div class="section-head"><h2>Serviços</h2><button class="primary small" id="newFromServices">+ Novo serviço</button></div>
+  <div class="filters" id="filters">
+    <button class="selected" data-filter="Todos">Todos</button>
+    <button data-filter="Pendente">Pendentes</button>
+    <button data-filter="Em execução">Em execução</button>
+    <button data-filter="Concluído">Concluídos</button>
+  </div>
+  <div id="serviceList" class="cards"></div>
+</section>
+
+<section id="history" class="screen">
+  <h2>Histórico</h2>
+  <p class="muted">Serviços concluídos e registros da execução.</p>
+  <div id="historyList" class="cards"></div>
+</section>
+
+<section id="new" class="screen">
+  <div class="section-head"><h2>Novo serviço</h2><button class="link" id="cancelNew">Cancelar</button></div>
+  <form id="serviceForm">
+    <label>Título<input required name="title" placeholder="Ex.: Consertar bebedouro da Baia 03"></label>
+    <label>Descrição<textarea name="description" placeholder="Descreva o que precisa ser feito"></textarea></label>
+    <div class="grid2">
+      <label>Local<input name="location" placeholder="Baia 03"></label>
+      <label>Responsável<input name="assignee" placeholder="Nome"></label>
+    </div>
+    <div class="grid2">
+      <label>Prazo<input type="date" name="deadline"></label>
+      <label>Prioridade<select name="priority"><option>Normal</option><option>Alta</option><option>Baixa</option></select></label>
+    </div>
+    <label>Materiais necessários<textarea name="materials" placeholder="Ex.: 1 boia, fita veda-rosca"></textarea></label>
+    <label>Foto do serviço<input type="file" name="photo" accept="image/*" capture="environment"></label>
+    <button class="primary" type="submit">Criar serviço</button>
+  </form>
+</section>
+
+<section id="detail" class="screen">
+  <button class="back" id="backToServices">← Serviços</button>
+  <div id="detailContent"></div>
+</section>
+</main>
+
+<nav class="bottom-nav">
+  <button data-screen="dashboard">⌂<span>Início</span></button>
+  <button data-screen="services">☷<span>Serviços</span></button>
+  <button class="add" id="navNew">＋</button>
+  <button data-screen="history">◷<span>Histórico</span></button>
+</nav>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
