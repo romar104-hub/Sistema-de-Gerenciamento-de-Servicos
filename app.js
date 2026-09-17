@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'criatorio_marques_servicos';
+let servicoPendentePausaId = null;
 
 function carregarServicos() {
   const dados = localStorage.getItem(STORAGE_KEY);
@@ -11,7 +12,6 @@ function salvarServicos(servicos) {
   renderizarServicos();
 }
 
-// Controladores da Ficha (Modal)
 function abrirModal() {
   document.getElementById('modal-servico').style.display = 'flex';
 }
@@ -28,7 +28,7 @@ function salvarServicoFormulario(event) {
   const local = document.getElementById('local-servico').value || 'Geral';
   const responsavel = document.getElementById('responsavel-servico').value || 'Não atribuído';
   const prioridade = document.getElementById('prioridade-servico').value;
-  const status = document.getElementById('status-servico').value;
+  const observacoes = document.getElementById('obs-servico').value;
 
   const servicos = carregarServicos();
   const novoServico = {
@@ -37,7 +37,9 @@ function salvarServicoFormulario(event) {
     local: local,
     responsavel: responsavel,
     prioridade: prioridade,
-    status: status,
+    observacoes: observacoes,
+    status: 'Pendente',
+    justificativas: [],
     data: new Date().toLocaleDateString('pt-BR')
   };
 
@@ -64,23 +66,74 @@ function renderizarServicos(lista = null) {
       </div>
       <p class="service-info">📍 ${s.local} | 👤 ${s.responsavel} | 📅 ${s.data}</p>
       <p class="service-priority">Prioridade: <strong>${s.prioridade}</strong></p>
-      <div class="service-actions" style="margin-top: 10px; display: flex; gap: 8px;">
-        <button onclick="alternarStatus(${s.id})" class="btn-secondary" style="padding: 6px 10px;">Mudar Status</button>
-        <button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 10px; background: #ff4d4d; color: white; border: none; border-radius: 6px;">Excluir</button>
+      
+      ${s.observacoes ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #444; background: #f9f9f9; padding: 6px; border-radius: 6px;">📝 <strong>Obs:</strong> ${s.observacoes}</p>` : ''}
+      
+      ${s.justificativas && s.justificativas.length > 0 ? `
+        <div style="font-size: 0.8rem; margin-top: 6px; color: #c0392b; background: #fdf0ed; padding: 6px; border-radius: 6px;">
+          <strong>⚠️ Histórico de Pausas:</strong>
+          ${s.justificativas.map(j => `<div>• ${j.data}: ${j.motivo}</div>`).join('')}
+        </div>
+      ` : ''}
+
+      <div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap;">
+        ${s.status === 'Pendente' ? `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">▶️ Iniciar</button>` : ''}
+        ${s.status === 'Em execução' ? `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">⏸️ Pausar (Pendente)</button>` : ''}
+        ${s.status !== 'Concluído' ? `<button onclick="concluirServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>` : ''}
+        <button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>
       </div>
     </div>
   `).join('');
 }
 
-function alternarStatus(id) {
+function iniciarServico(id) {
   let servicos = carregarServicos();
-  const index = servicos.findIndex(s => s.id === id);
-  if (index !== -1) {
-    const statusOrdem = ['Pendente', 'Em execução', 'Concluído'];
-    const proximo = (statusOrdem.indexOf(servicos[index].status) + 1) % statusOrdem.length;
-    servicos[index].status = statusOrdem[proximo];
+  const item = servicos.find(s => s.id === id);
+  if (item) {
+    item.status = 'Em execução';
     salvarServicos(servicos);
   }
+}
+
+function concluirServico(id) {
+  let servicos = carregarServicos();
+  const item = servicos.find(s => s.id === id);
+  if (item) {
+    item.status = 'Concluído';
+    salvarServicos(servicos);
+  }
+}
+
+function solicitarPausaServico(id) {
+  servicoPendentePausaId = id;
+  document.getElementById('modal-justificativa').style.display = 'flex';
+}
+
+function fecharModalJustificativa() {
+  servicoPendentePausaId = null;
+  document.getElementById('texto-justificativa').value = '';
+  document.getElementById('modal-justificativa').style.display = 'none';
+}
+
+function confirmarPausaServico() {
+  const motivo = document.getElementById('texto-justificativa').value.trim();
+  if (!motivo) {
+    alert('Por favor, informe a justificativa.');
+    return;
+  }
+
+  let servicos = carregarServicos();
+  const item = servicos.find(s => s.id === servicoPendentePausaId);
+  if (item) {
+    item.status = 'Pendente';
+    if (!item.justificativas) item.justificativas = [];
+    item.justificativas.push({
+      data: new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
+      motivo: motivo
+    });
+    salvarServicos(servicos);
+  }
+  fecharModalJustificativa();
 }
 
 function filtrarServicos() {
