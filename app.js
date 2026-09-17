@@ -2,6 +2,7 @@ const STORAGE_KEY = 'criatorio_marques_servicos';
 let servicoPendentePausaId = null;
 let servicoConclusaoId = null;
 let imagensTempConclusao = [];
+let filtroStatusAtual = null;
 
 function carregarServicos() {
   const dados = localStorage.getItem(STORAGE_KEY);
@@ -11,7 +12,7 @@ function carregarServicos() {
 function salvarServicos(servicos) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(servicos));
   atualizarDashboard();
-  renderizarServicos();
+  filtrarServicos();
 }
 
 function abrirModal() {
@@ -41,6 +42,7 @@ function salvarServicoFormulario(event) {
     prioridade: prioridade,
     observacoes: observacoes,
     status: 'Pendente',
+    dataInicio: null,
     justificativas: [],
     conclusaoInfo: null,
     fotos: [],
@@ -52,8 +54,48 @@ function salvarServicoFormulario(event) {
   fecharModal();
 }
 
-function renderizarServicos(lista = null) {
-  const servicos = lista || carregarServicos();
+function filtrarPorStatus(status) {
+  if (filtroStatusAtual === status) {
+    filtroStatusAtual = null; // Clicar novamente limpa o filtro
+  } else {
+    filtroStatusAtual = status;
+  }
+  
+  atualizarEstiloCards();
+  filtrarServicos();
+}
+
+function atualizarEstiloCards() {
+  document.getElementById('card-pendentes').classList.toggle('ativo', filtroStatusAtual === 'Pendente');
+  document.getElementById('card-execucao').classList.toggle('ativo', filtroStatusAtual === 'Em execução');
+  document.getElementById('card-concluidos').classList.toggle('ativo', filtroStatusAtual === 'Concluído');
+  
+  const titulo = document.getElementById('titulo-lista');
+  if (titulo) {
+    titulo.innerText = filtroStatusAtual ? `Serviços (${filtroStatusAtual})` : 'Serviços recentes';
+  }
+}
+
+function filtrarServicos() {
+  const termo = document.getElementById('search-input').value.toLowerCase();
+  let servicos = carregarServicos();
+
+  if (filtroStatusAtual) {
+    servicos = servicos.filter(s => s.status === filtroStatusAtual);
+  }
+
+  if (termo) {
+    servicos = servicos.filter(s => 
+      s.nome.toLowerCase().includes(termo) ||
+      s.local.toLowerCase().includes(termo) ||
+      s.responsavel.toLowerCase().includes(termo)
+    );
+  }
+
+  renderizarServicos(servicos);
+}
+
+function renderizarServicos(servicos) {
   const container = document.getElementById('lista-servicos');
   if (!container) return;
 
@@ -72,9 +114,11 @@ function renderizarServicos(lista = null) {
         <h4>${s.nome.toUpperCase()}</h4>
         <span class="badge ${s.status.toLowerCase().replace(' ', '-')}">${s.status}</span>
       </div>
-      <p class="service-info">📍 ${s.local} | 👤 ${s.responsavel} | 📅 ${s.data}</p>
+      <p class="service-info">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data}</p>
       <p class="service-priority">Prioridade: <strong>${s.prioridade}</strong></p>
       
+      ${s.dataInicio ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #1e7e34; background: #eafaf1; padding: 6px; border-radius: 6px;">⏱️ <strong>Iniciado em:</strong> ${s.dataInicio}</p>` : ''}
+
       ${s.observacoes ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #444; background: #f9f9f9; padding: 6px; border-radius: 6px;">📝 <strong>Obs:</strong> ${s.observacoes}</p>` : ''}
       
       ${jaFoiPausado ? `
@@ -110,6 +154,8 @@ function iniciarServico(id) {
   const item = servicos.find(s => s.id === id);
   if (item) {
     item.status = 'Em execução';
+    const agora = new Date();
+    item.dataInicio = agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
     salvarServicos(servicos);
   }
 }
@@ -146,7 +192,6 @@ function confirmarPausaServico() {
   fecharModalJustificativa();
 }
 
-/* FLUXO DE CONCLUSÃO COM RELATÓRIO E FOTOS */
 function solicitarConclusaoServico(id) {
   servicoConclusaoId = id;
   imagensTempConclusao = [];
@@ -177,7 +222,7 @@ function carregarImagensConclusao(event) {
       img.style.width = '60px';
       img.style.height = '60px';
       img.style.objectFit = 'cover';
-      img.style.borderRadius = '60px';
+      img.style.borderRadius = '6px';
       img.style.border = '1px solid #ccc';
       preview.appendChild(img);
     };
@@ -201,22 +246,11 @@ function confirmarConclusaoServico(event) {
     item.status = 'Concluído';
     item.conclusaoInfo = relatorio;
     item.fotos = imagensTempConclusao;
-    item.dataConclusao = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    item.dataConclusao = new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
     salvarServicos(servicos);
   }
 
   fecharModalConclusao();
-}
-
-function filtrarServicos() {
-  const termo = document.getElementById('search-input').value.toLowerCase();
-  const servicos = carregarServicos();
-  const filtrados = servicos.filter(s => 
-    s.nome.toLowerCase().includes(termo) ||
-    s.local.toLowerCase().includes(termo) ||
-    s.responsavel.toLowerCase().includes(termo)
-  );
-  renderizarServicos(filtrados);
 }
 
 function excluirServico(id) {
@@ -268,5 +302,5 @@ function atualizarDashboard() {
 
 document.addEventListener('DOMContentLoaded', () => {
   atualizarDashboard();
-  renderizarServicos();
+  filtrarServicos();
 });
