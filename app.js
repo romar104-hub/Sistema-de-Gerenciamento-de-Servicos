@@ -1,3 +1,28 @@
+// VARIÁVEL GLOBAL DA FAZENDA
+let dadosFazenda = JSON.parse(localStorage.getItem('dadosFazenda')) || {
+  nome: 'CRIATÓRIO MARQUES',
+  slogan: 'Excelência em Genética e Manejo no Sertão',
+  cidade: 'Belém do São Francisco - PE',
+  logoBase64: ''
+};
+
+let logoTempBase64 = '';
+
+// INICIALIZAÇÃO DO APP
+document.addEventListener('DOMContentLoaded', () => {
+  carregarDadosFazendaNaTela();
+  
+  // Se for o primeiro acesso do proprietário, abre o cadastro da fazenda
+  if (!localStorage.getItem('dadosFazenda')) {
+    abrirModalPerfilFazenda(true);
+  }
+
+  buscarClimaBelem();
+  
+  // Chame aqui as suas funções existentes de carregar lista de serviços
+  if (typeof atualizarDashboard === 'function') atualizarDashboard();
+  if (typeof filtrarServicos === 'function') filtrarServicos();
+});
 // Buscar Temperatura e Clima em tempo real para Belém do São Francisco - PE (Lat: -8.7531, Lon: -38.9667)
 async function buscarClimaBelem() {
   try {
@@ -445,3 +470,117 @@ document.addEventListener('DOMContentLoaded', () => {
   atualizarDashboard();
   filtrarServicos();
 });
+// ==========================================
+// GERENCIAMENTO DA FAZENDA E CLIMA
+// ==========================================
+
+function carregarDadosFazendaNaTela() {
+  document.getElementById('header-nome-fazenda').innerText = dadosFazenda.nome.toUpperCase();
+  document.getElementById('header-slogan').innerText = `"${dadosFazenda.slogan}"`;
+  document.getElementById('header-cidade').innerText = `📍 ${dadosFazenda.cidade}`;
+
+  const logoContainer = document.getElementById('header-logo');
+  if (dadosFazenda.logoBase64) {
+    logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo">`;
+  } else {
+    const iniciais = dadosFazenda.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    logoContainer.innerText = iniciais || 'CM';
+  }
+}
+
+function abrirModalPerfilFazenda(isPrimeiroAcesso = false) {
+  document.getElementById('input-nome-fazenda').value = dadosFazenda.nome || '';
+  document.getElementById('input-slogan-fazenda').value = dadosFazenda.slogan || '';
+  document.getElementById('input-cidade-fazenda').value = dadosFazenda.cidade || '';
+  
+  logoTempBase64 = dadosFazenda.logoBase64 || '';
+  const previewBox = document.getElementById('preview-logo-box');
+  if (logoTempBase64) {
+    previewBox.innerHTML = `<img src="${logoTempBase64}">`;
+  } else {
+    previewBox.innerHTML = `<span style="font-size: 0.75rem; color: #888;">Sem logo</span>`;
+  }
+
+  if (isPrimeiroAcesso) {
+    document.getElementById('titulo-modal-fazenda').innerText = '👋 Bem-vindo! Configure sua Propriedade';
+  } else {
+    document.getElementById('titulo-modal-fazenda').innerText = '🏡 Dados da Propriedade';
+  }
+
+  document.getElementById('modal-perfil-fazenda').style.display = 'flex';
+}
+
+function fecharModalPerfilFazenda() {
+  document.getElementById('modal-perfil-fazenda').style.display = 'none';
+}
+
+function carregarPreviewLogo(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    logoTempBase64 = e.target.result;
+    document.getElementById('preview-logo-box').innerHTML = `<img src="${logoTempBase64}">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function salvarPerfilFazenda(event) {
+  event.preventDefault();
+
+  dadosFazenda = {
+    nome: document.getElementById('input-nome-fazenda').value.trim(),
+    slogan: document.getElementById('input-slogan-fazenda').value.trim(),
+    cidade: document.getElementById('input-cidade-fazenda').value.trim(),
+    logoBase64: logoTempBase64
+  };
+
+  localStorage.setItem('dadosFazenda', JSON.stringify(dadosFazenda));
+  carregarDadosFazendaNaTela();
+  fecharModalPerfilFazenda();
+  
+  buscarClimaBelem();
+}
+
+async function buscarClimaBelem() {
+  try {
+    const cidadeQuery = encodeURIComponent(dadosFazenda.cidade || 'Belém do São Francisco');
+    const geoResp = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${cidadeQuery}&count=1&language=pt`);
+    const geoData = await geoResp.json();
+
+    let lat = -8.7531;
+    let lon = -38.9667;
+
+    if (geoData && geoData.results && geoData.results[0]) {
+      lat = geoData.results[0].latitude;
+      lon = geoData.results[0].longitude;
+    }
+
+    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+    const data = await response.json();
+    
+    if (data && data.current_weather) {
+      const temp = Math.round(data.current_weather.temperature);
+      const code = data.current_weather.weathercode;
+      
+      document.getElementById('weather-temp').innerText = `${temp}°C`;
+      
+      let desc = "Ensolarado";
+      let icon = "☀️";
+      
+      if (code === 0) { desc = "Céu Limpo"; icon = "☀️"; }
+      else if (code >= 1 && code <= 3) { desc = "Parcialmente Nublado"; icon = "⛅"; }
+      else if (code >= 45 && code <= 48) { desc = "Nevoeiro"; icon = "🌫️"; }
+      else if (code >= 51 && code <= 67) { desc = "Chuva Leve"; icon = "🌧️"; }
+      else if (code >= 80 && code <= 99) { desc = "Pancadas / Chuva"; icon = "⛈️"; }
+      
+      document.getElementById('weather-desc').innerText = desc;
+      document.getElementById('weather-icon').innerText = icon;
+    }
+  } catch (error) {
+    document.getElementById('weather-temp').innerText = "32°C";
+    document.getElementById('weather-desc').innerText = "Ensolarado";
+    document.getElementById('weather-icon').innerText = "☀️";
+  }
+}
