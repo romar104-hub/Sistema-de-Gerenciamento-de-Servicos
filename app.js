@@ -143,7 +143,45 @@ function renderizarServicos(servicos) {
     container.innerHTML = '<p class="empty-msg" style="text-align: center; color: #7f8c8d; margin-top: 20px;">Nenhum serviço encontrado.</p>';
     return;
   }
+// ENVIAR RELATÓRIO VIA WHATSAPP
+function enviarRelatorioWhatsApp(id) {
+  const servicos = carregarServicos();
+  const s = servicos.find(item => item.id === id);
+  if (!s) return;
 
+  const nomeFazenda = dadosFazenda.nome || 'CRIATÓRIO MARQUES';
+  const historico = s.historicoExecucao || [];
+
+  let mensagem = `*🟢 RELATÓRIO DE SERVIÇO CONCLUÍDO*\n`;
+  mensagem += `*${nomeFazenda.toUpperCase()}*\n\n`;
+  mensagem += `📋 *Serviço:* ${s.nome.toUpperCase()}\n`;
+  mensagem += `📍 *Local:* ${s.local}\n`;
+  mensagem += `👤 *Responsável:* ${s.responsavel}\n`;
+  mensagem += `📅 *Criado em:* ${s.data}\n`;
+  if (s.agendamento) mensagem += `🗓️ *Agendado para:* ${s.agendamento}\n`;
+  
+  if (s.observacoes) {
+    mensagem += `\n📝 *Orientações:* ${s.observacoes}\n`;
+  }
+
+  if (historico.length > 0) {
+    mensagem += `\n⏱️ *Linha do Tempo:*\n`;
+    historico.forEach(h => {
+      mensagem += `${h.icone} ${h.acao}: ${h.dataHora}${h.detalhes ? ' (' + h.detalhes + ')' : ''}\n`;
+    });
+  }
+
+  if (s.conclusaoInfo) {
+    mensagem += `\n✅ *Parecer de Conclusão:*\n${s.conclusaoInfo}\n`;
+  }
+
+  if (s.fotos && s.fotos.length > 0) {
+    mensagem += `\n📸 *Comprovantes Anexados:* ${s.fotos.length} foto(s) registrada(s) no sistema.`;
+  }
+
+  const urlWhatsApp = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+  window.open(urlWhatsApp, '_blank');
+}
   container.innerHTML = servicos.map(s => {
     const historico = s.historicoExecucao || [];
     const jaIniciouAlgo = historico.length > 0;
