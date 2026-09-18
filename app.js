@@ -1,4 +1,9 @@
-// VARIÁVEL GLOBAL DA FAZENDA
+const STORAGE_KEY = 'criatorio_marques_servicos';
+let servicoPendentePausaId = null;
+let servicoConclusaoId = null;
+let imagensTempConclusao = [];
+let filtroStatusAtual = null;
+
 let dadosFazenda = JSON.parse(localStorage.getItem('dadosFazenda')) || {
   nome: 'CRIATÓRIO MARQUES',
   slogan: 'Excelência em Genética e Manejo no Sertão',
@@ -8,63 +13,15 @@ let dadosFazenda = JSON.parse(localStorage.getItem('dadosFazenda')) || {
 
 let logoTempBase64 = '';
 
-// INICIALIZAÇÃO DO APP
 document.addEventListener('DOMContentLoaded', () => {
   carregarDadosFazendaNaTela();
-  
-  // Se for o primeiro acesso do proprietário, abre o cadastro da fazenda
   if (!localStorage.getItem('dadosFazenda')) {
     abrirModalPerfilFazenda(true);
   }
-
-  buscarClimaBelem();
-  
-  // Chame aqui as suas funções existentes de carregar lista de serviços
-  if (typeof atualizarDashboard === 'function') atualizarDashboard();
-  if (typeof filtrarServicos === 'function') filtrarServicos();
-});
-// Buscar Temperatura e Clima em tempo real para Belém do São Francisco - PE (Lat: -8.7531, Lon: -38.9667)
-async function buscarClimaBelem() {
-  try {
-    const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-8.7531&longitude=-38.9667&current_weather=true');
-    const data = await response.json();
-    
-    if (data && data.current_weather) {
-      const temp = Math.round(data.current_weather.temperature);
-      const code = data.current_weather.weathercode;
-      
-      document.getElementById('weather-temp').innerText = `${temp}°C`;
-      
-      let desc = "Ensolarado";
-      let icon = "☀️";
-      
-      if (code === 0) { desc = "Céu Limpo"; icon = "☀️"; }
-      else if (code >= 1 && code <= 3) { desc = "Parcialmente Nublado"; icon = "⛅"; }
-      else if (code >= 45 && code <= 48) { desc = "Nevoeiro"; icon = "🌫️"; }
-      else if (code >= 51 && code <= 67) { desc = "Chuva Leve"; icon = "🌧️"; }
-      else if (code >= 80 && code <= 99) { desc = "Pancadas / Chuva"; icon = "⛈️"; }
-      
-      document.getElementById('weather-desc').innerText = desc;
-      document.getElementById('weather-icon').innerText = icon;
-    }
-  } catch (error) {
-    document.getElementById('weather-temp').innerText = "32°C";
-    document.getElementById('weather-desc').innerText = "Ensolarado";
-    document.getElementById('weather-icon').innerText = "☀️";
-  }
-}
-
-// Lembre-se de adicionar 'buscarClimaBelem();' dentro da chamada do DOMContentLoaded:
-document.addEventListener('DOMContentLoaded', () => {
   buscarClimaBelem();
   atualizarDashboard();
   filtrarServicos();
 });
-const STORAGE_KEY = 'criatorio_marques_servicos';
-let servicoPendentePausaId = null;
-let servicoConclusaoId = null;
-let imagensTempConclusao = [];
-let filtroStatusAtual = null;
 
 function carregarServicos() {
   const dados = localStorage.getItem(STORAGE_KEY);
@@ -100,6 +57,19 @@ function salvarServicoFormulario(event) {
   const prioridade = document.getElementById('prioridade-servico').value;
   const observacoes = document.getElementById('obs-servico').value;
 
+  const dataAgendadaVal = document.getElementById('data-agendada').value;
+  const horaAgendadaVal = document.getElementById('hora-agendada').value;
+
+  let statusInicial = 'Pendente';
+  let informacaoAgendamento = null;
+
+  if (dataAgendadaVal) {
+    statusInicial = 'Agendado';
+    const partesData = dataAgendadaVal.split('-');
+    const dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
+    informacaoAgendamento = `${dataFormatada}${horaAgendadaVal ? ' às ' + horaAgendadaVal : ''}`;
+  }
+
   const servicos = carregarServicos();
   const novoServico = {
     id: Date.now(),
@@ -108,7 +78,8 @@ function salvarServicoFormulario(event) {
     responsavel: responsavel,
     prioridade: prioridade,
     observacoes: observacoes,
-    status: 'Pendente',
+    status: statusInicial,
+    agendamento: informacaoAgendamento,
     historicoExecucao: [],
     conclusaoInfo: null,
     fotos: [],
@@ -132,9 +103,10 @@ function filtrarPorStatus(status) {
 }
 
 function atualizarEstiloCards() {
-  document.getElementById('card-pendentes').classList.toggle('ativo', filtroStatusAtual === 'Pendente');
-  document.getElementById('card-execucao').classList.toggle('ativo', filtroStatusAtual === 'Em execução');
-  document.getElementById('card-concluidos').classList.toggle('ativo', filtroStatusAtual === 'Concluído');
+  if (document.getElementById('card-agendados')) document.getElementById('card-agendados').classList.toggle('ativo', filtroStatusAtual === 'Agendado');
+  if (document.getElementById('card-pendentes')) document.getElementById('card-pendentes').classList.toggle('ativo', filtroStatusAtual === 'Pendente');
+  if (document.getElementById('card-execucao')) document.getElementById('card-execucao').classList.toggle('ativo', filtroStatusAtual === 'Em execução');
+  if (document.getElementById('card-concluidos')) document.getElementById('card-concluidos').classList.toggle('ativo', filtroStatusAtual === 'Concluído');
   
   const titulo = document.getElementById('titulo-lista');
   if (titulo) {
@@ -173,20 +145,21 @@ function renderizarServicos(servicos) {
   container.innerHTML = servicos.map(s => {
     const historico = s.historicoExecucao || [];
     const jaIniciouAlgo = historico.length > 0;
-    const rotuloIniciar = jaIniciouAlgo ? '▶️ Retomar' : '▶️ Iniciar';
+    const rotuloIniciar = jaIniciouAlgo ? '▶️ Retomar' : '🚀 Iniciar';
 
     return `
     <div class="service-card">
       <div class="service-main">
         <h4>${s.nome.toUpperCase()}</h4>
-        <span class="badge ${s.status.toLowerCase().replace(' ', '-')}">${s.status}</span>
+        <span class="badge ${s.status.toLowerCase().replace(' ', '-').replace('ú', 'u')}">${s.status}</span>
       </div>
       <p class="service-info">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data}</p>
       <p class="service-priority">Prioridade: <strong>${s.prioridade}</strong></p>
       
+      ${s.agendamento ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #2980b9; background: #ebf5fb; padding: 6px; border-radius: 6px;">📅 <strong>Agendado para:</strong> ${s.agendamento}</p>` : ''}
+
       ${s.observacoes ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #444; background: #f9f9f9; padding: 6px; border-radius: 6px;">📝 <strong>Obs:</strong> ${s.observacoes}</p>` : ''}
       
-      <!-- HISTÓRICO DE EXECUÇÃO -->
       ${historico.length > 0 ? `
         <div style="font-size: 0.8rem; margin-top: 8px; color: #2c3e50; background: #f1f5f9; padding: 8px; border-radius: 6px; border-left: 3px solid #2e5a3c;">
           <strong>⏱️ Registros de Execução:</strong>
@@ -201,96 +174,26 @@ function renderizarServicos(servicos) {
         </div>
       ` : ''}
 
-      <!-- RELATÓRIO DE CONCLUSÃO COM FOTOS AMPLIAVEIS -->
       ${s.conclusaoInfo ? `
         <div style="font-size: 0.8rem; margin-top: 8px; color: #1e7e34; background: #eafaf1; padding: 8px; border-radius: 6px; border-left: 3px solid #27ae60;">
           <strong>✅ Relatório de Conclusão:</strong>
           <div>${s.conclusaoInfo}</div>${s.fotos && s.fotos.length > 0 ? `
             <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
-              ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60;" title="Clique para ampliar">`).join('')}
+              ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60;">`).join('')}
             </div>
           ` : ''}
         </div>
       ` : ''}
 
       <div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-        ${s.status === 'Pendente' ? `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">${rotuloIniciar}</button>` : ''}
-        ${s.status === 'Em execução' ? `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">⏸️ Pausar (Pendente)</button>` : ''}
+        ${(s.status === 'Pendente' || s.status === 'Agendado') ? `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">${rotuloIniciar}</button>` : ''}
+        ${s.status === 'Em execução' ? `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">⏸️ Pausar</button>` : ''}
         ${s.status !== 'Concluído' ? `<button onclick="solicitarConclusaoServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>` : ''}
-        
-        ${s.status === 'Concluído' ? `<button onclick="abrirRelatorioCompleto(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #2980b9; color: white; border: none; border-radius: 6px; cursor: pointer;">📄 Resumo / Relatório</button>` : ''}
-
+        ${s.status === 'Concluído' ? `<button onclick="abrirRelatorioCompleto(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #2980b9; color: white; border: none; border-radius: 6px; cursor: pointer;">📄 Resumo</button>` : ''}
         <button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>
       </div>
     </div>
   `}).join('');
-}
-
-function abrirRelatorioCompleto(id) {
-  const servicos = carregarServicos();
-  const s = servicos.find(item => item.id === id);
-  if (!s) return;
-
-  const container = document.getElementById('conteudo-relatorio');
-  const historico = s.historicoExecucao || [];
-
-  container.innerHTML = `
-    <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-      <h4 style="margin: 0 0 6px 0; color: #2e5a3c; font-size: 1.1rem;">${s.nome.toUpperCase()}</h4>
-      <p style="margin: 0; font-size: 0.9rem; color: #64748b;">📍 <strong>Local:</strong> ${s.local} | 👤 <strong>Responsável:</strong> ${s.responsavel}</p>
-      <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #64748b;">📅 <strong>Criação:</strong> ${s.data} | ⚡ <strong>Prioridade:</strong> ${s.prioridade}</p>
-    </div>
-
-    ${s.observacoes ? `
-      <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-        <strong>📝 Orientações / Observações Iniciais:</strong>
-        <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: #334155;">${s.observacoes}</p>
-      </div>
-    ` : ''}
-
-    <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-      <strong>⏱️ Linha do Tempo e Histórico do Serviço:</strong>
-      <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem;">
-        ${historico.length > 0 ? historico.map(h => `
-          <div style="padding: 4px 0; border-bottom: 1px dashed #e2e8f0;">
-            <strong>${h.icone}${h.acao}:</strong> ${h.dataHora}${h.detalhes ? `<div style="color: #c0392b; margin-top: 2px;">Motivo: ${h.detalhes}</div>` : ''}
-          </div>
-        `).join('') : '<div style="color: #94a3b8;">Nenhum evento registrado.</div>'}
-      </div>
-    </div>
-
-    <div style="background: #f0fdf4; padding: 10px; border-radius: 6px; border: 1px solid #bbf7d0;">
-      <strong style="color: #166534;">✅ Descrição e Parecer da Conclusão:</strong>
-      <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #15803d;">${s.conclusaoInfo || 'Sem descrição.'}</p>
-    </div>
-
-    ${s.fotos && s.fotos.length > 0 ? `
-      <div>
-        <strong>📸 Comprovantes e Fotos da Execução (Clique para ampliar):</strong>
-        <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
-          ${s.fotos.map(f => `
-            <img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 90px; height: 90px; object-fit: cover; border-radius: 8px; border: 2px solid #27ae60;" title="Clique para ampliar">
-          `).join('')}
-        </div>
-      </div>
-    ` : '<p style="font-size: 0.85rem; color: #64748b; margin: 0;">Nenhuma foto anexada a esta conclusão.</p>'}
-  `;
-
-  document.getElementById('modal-relatorio').style.display = 'flex';
-}
-
-function fecharModalRelatorio() {
-  document.getElementById('modal-relatorio').style.display = 'none';
-}
-
-function ampliarImagem(src) {
-  document.getElementById('img-ampliada').src = src;
-  document.getElementById('modal-zoom-imagem').style.display = 'flex';
-}
-
-function fecharZoomImagem() {
-  document.getElementById('modal-zoom-imagem').style.display = 'none';
-  document.getElementById('img-ampliada').src = '';
 }
 
 function iniciarServico(id) {
@@ -298,15 +201,12 @@ function iniciarServico(id) {
   const item = servicos.find(s => s.id === id);
   if (item) {
     if (!item.historicoExecucao) item.historicoExecucao = [];
-    
     const ehRetomada = item.historicoExecucao.length > 0;
-    const acaoTexto = ehRetomada ? 'Retomou atividade' : 'Iniciou atividade';
-    const iconeTexto = ehRetomada ? '▶️' : '🚀';
 
     item.status = 'Em execução';
     item.historicoExecucao.push({
-      acao: acaoTexto,
-      icone: iconeTexto,
+      acao: ehRetomada ? 'Retomou atividade' : 'Iniciou atividade',
+      icone: ehRetomada ? '▶️' : '🚀',
       dataHora: obterDataHoraAtual()
     });
 
@@ -327,24 +227,19 @@ function fecharModalJustificativa() {
 
 function confirmarPausaServico() {
   const motivo = document.getElementById('texto-justificativa').value.trim();
-  if (!motivo) {
-    alert('Por favor, informe a justificativa.');
-    return;
-  }
+  if (!motivo) return alert('Por favor, informe a justificativa.');
 
   let servicos = carregarServicos();
   const item = servicos.find(s => s.id === servicoPendentePausaId);
   if (item) {
     item.status = 'Pendente';
     if (!item.historicoExecucao) item.historicoExecucao = [];
-
     item.historicoExecucao.push({
       acao: 'Pausou atividade',
       icone: '⏸️',
       dataHora: obterDataHoraAtual(),
       detalhes: motivo
     });
-
     salvarServicos(servicos);
   }
   fecharModalJustificativa();
@@ -361,7 +256,6 @@ function fecharModalConclusao() {
   servicoConclusaoId = null;
   imagensTempConclusao = [];
   document.getElementById('form-conclusao').reset();
-  document.getElementById('preview-imagens').innerHTML = '';
   document.getElementById('modal-conclusao').style.display = 'none';
 }
 
@@ -377,11 +271,7 @@ function carregarImagensConclusao(event) {
       imagensTempConclusao.push(e.target.result);
       const img = document.createElement('img');
       img.src = e.target.result;
-      img.style.width = '60px';
-      img.style.height = '60px';
-      img.style.objectFit = 'cover';
-      img.style.borderRadius = '6px';
-      img.style.border = '1px solid #ccc';
+      img.style.cssText = 'width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc;';
       preview.appendChild(img);
     };
     reader.readAsDataURL(file);
@@ -391,39 +281,66 @@ function carregarImagensConclusao(event) {
 function confirmarConclusaoServico(event) {
   event.preventDefault();
   const relatorio = document.getElementById('relatorio-conclusao').value.trim();
-
-  if (!relatorio) {
-    alert('Por favor, informe as observações de conclusão.');
-    return;
-  }
+  if (!relatorio) return alert('Informe o relatório de conclusão.');
 
   let servicos = carregarServicos();
   const item = servicos.find(s => s.id === servicoConclusaoId);
-
   if (item) {
     item.status = 'Concluído';
     item.conclusaoInfo = relatorio;
     item.fotos = imagensTempConclusao;
-    
     if (!item.historicoExecucao) item.historicoExecucao = [];
-
-    item.historicoExecucao.push({
-      acao: 'Concluiu atividade',
-      icone: '🏁',
-      dataHora: obterDataHoraAtual()
-    });
-
+    item.historicoExecucao.push({ acao: 'Concluiu atividade', icone: '🏁', dataHora: obterDataHoraAtual() });
     salvarServicos(servicos);
   }
-
   fecharModalConclusao();
 }
+
+function abrirRelatorioCompleto(id) {
+  const servicos = carregarServicos();
+  const s = servicos.find(item => item.id === id);
+  if (!s) return;
+
+  const container = document.getElementById('conteudo-relatorio');
+  const historico = s.historicoExecucao || [];
+
+  container.innerHTML = `
+    <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+      <h4 style="margin: 0 0 6px 0; color: #2e5a3c;">${s.nome.toUpperCase()}</h4>
+      <p style="margin: 0; font-size: 0.9rem; color: #64748b;">📍 Local: ${s.local} | 👤 Responsável: ${s.responsavel}</p>
+      <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #64748b;">📅 Criado: ${s.data} ${s.agendamento ? '| 📅 Agendado: ' + s.agendamento : ''}</p>
+    </div>
+    <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+      <strong>⏱️ Histórico e Linha do Tempo:</strong>
+      <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem;">
+        ${historico.map(h => `<div style="border-bottom: 1px dashed #e2e8f0; padding: 4px 0;"><strong>${h.icone}${h.acao}:</strong> ${h.dataHora}${h.detalhes ? `<div style="color: #c0392b;">Motivo: ${h.detalhes}</div>` : ''}</div>`).join('')}
+      </div>
+    </div>
+    <div style="background: #f0fdf4; padding: 10px; border-radius: 6px; border: 1px solid #bbf7d0;">
+      <strong style="color: #166534;">✅ Conclusão:</strong>
+      <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #15803d;">${s.conclusaoInfo}</p>
+    </div>
+    ${s.fotos && s.fotos.length > 0 ? `
+      <div>
+        <strong>📸 Comprovantes:</strong>
+        <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
+          ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #27ae60;">`).join('')}
+        </div>
+      </div>
+    ` : ''}
+  `;
+
+  document.getElementById('modal-relatorio').style.display = 'flex';
+}
+
+function fecharModalRelatorio() { document.getElementById('modal-relatorio').style.display = 'none'; }
+function ampliarImagem(src) { document.getElementById('img-ampliada').src = src; document.getElementById('modal-zoom-imagem').style.display = 'flex'; }
+function fecharZoomImagem() { document.getElementById('modal-zoom-imagem').style.display = 'none'; }
 
 function excluirServico(id) {
   if (confirm('Deseja realmente excluir este serviço?')) {
     let servicos = carregarServicos();
-    servicos = servicos.filter(s => s.id !== id);
-    salvarServicos(servicos);
+    salvarServicos(servicos.filter(s => s.id !== id));
   }
 }
 
@@ -441,50 +358,35 @@ function exportarBackup() {
 function importarBackup(event) {
   const file = event.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const dados = JSON.parse(e.target.result);
-      if (Array.isArray(dados)) {
-        salvarServicos(dados);
-        alert('Backup importado com sucesso!');
-      }
-    } catch (err) {
-      alert('Arquivo inválido.');
-    }
+      if (Array.isArray(dados)) { salvarServicos(dados); alert('Backup importado com sucesso!'); }
+    } catch (err) { alert('Arquivo inválido.'); }
   };
   reader.readAsText(file);
 }
 
 function atualizarDashboard() {
   const servicos = carregarServicos();
-  if (document.getElementById('count-pendentes')) {
+  if (document.getElementById('count-agendados')) {
+    document.getElementById('count-agendados').innerText = servicos.filter(s => s.status === 'Agendado').length;
     document.getElementById('count-pendentes').innerText = servicos.filter(s => s.status === 'Pendente').length;
     document.getElementById('count-execucao').innerText = servicos.filter(s => s.status === 'Em execução').length;
     document.getElementById('count-concluidos').innerText = servicos.filter(s => s.status === 'Concluído').length;
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  atualizarDashboard();
-  filtrarServicos();
-});
-// ==========================================
-// GERENCIAMENTO DA FAZENDA E CLIMA
-// ==========================================
-
 function carregarDadosFazendaNaTela() {
   document.getElementById('header-nome-fazenda').innerText = dadosFazenda.nome.toUpperCase();
   document.getElementById('header-slogan').innerText = `"${dadosFazenda.slogan}"`;
   document.getElementById('header-cidade').innerText = `📍 ${dadosFazenda.cidade}`;
-
   const logoContainer = document.getElementById('header-logo');
   if (dadosFazenda.logoBase64) {
     logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo">`;
   } else {
-    const iniciais = dadosFazenda.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-    logoContainer.innerText = iniciais || 'CM';
+    logoContainer.innerText = dadosFazenda.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'CM';
   }
 }
 
@@ -492,34 +394,19 @@ function abrirModalPerfilFazenda(isPrimeiroAcesso = false) {
   document.getElementById('input-nome-fazenda').value = dadosFazenda.nome || '';
   document.getElementById('input-slogan-fazenda').value = dadosFazenda.slogan || '';
   document.getElementById('input-cidade-fazenda').value = dadosFazenda.cidade || '';
-  
   logoTempBase64 = dadosFazenda.logoBase64 || '';
-  const previewBox = document.getElementById('preview-logo-box');
-  if (logoTempBase64) {
-    previewBox.innerHTML = `<img src="${logoTempBase64}">`;
-  } else {
-    previewBox.innerHTML = `<span style="font-size: 0.75rem; color: #888;">Sem logo</span>`;
-  }
-
-  if (isPrimeiroAcesso) {
-    document.getElementById('titulo-modal-fazenda').innerText = '👋 Bem-vindo! Configure sua Propriedade';
-  } else {
-    document.getElementById('titulo-modal-fazenda').innerText = '🏡 Dados da Propriedade';
-  }
-
+  document.getElementById('preview-logo-box').innerHTML = logoTempBase64 ? `<img src="${logoTempBase64}">` : `<span style="font-size:0.75rem; color:#888;">Sem logo</span>`;
+  document.getElementById('titulo-modal-fazenda').innerText = isPrimeiroAcesso ? '👋 Configure sua Propriedade' : '🏡 Dados da Propriedade';
   document.getElementById('modal-perfil-fazenda').style.display = 'flex';
 }
 
-function fecharModalPerfilFazenda() {
-  document.getElementById('modal-perfil-fazenda').style.display = 'none';
-}
+function fecharModalPerfilFazenda() { document.getElementById('modal-perfil-fazenda').style.display = 'none'; }
 
 function carregarPreviewLogo(event) {
   const file = event.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = e => {
     logoTempBase64 = e.target.result;
     document.getElementById('preview-logo-box').innerHTML = `<img src="${logoTempBase64}">`;
   };
@@ -528,18 +415,15 @@ function carregarPreviewLogo(event) {
 
 function salvarPerfilFazenda(event) {
   event.preventDefault();
-
   dadosFazenda = {
     nome: document.getElementById('input-nome-fazenda').value.trim(),
     slogan: document.getElementById('input-slogan-fazenda').value.trim(),
     cidade: document.getElementById('input-cidade-fazenda').value.trim(),
     logoBase64: logoTempBase64
   };
-
   localStorage.setItem('dadosFazenda', JSON.stringify(dadosFazenda));
   carregarDadosFazendaNaTela();
   fecharModalPerfilFazenda();
-  
   buscarClimaBelem();
 }
 
@@ -548,33 +432,22 @@ async function buscarClimaBelem() {
     const cidadeQuery = encodeURIComponent(dadosFazenda.cidade || 'Belém do São Francisco');
     const geoResp = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${cidadeQuery}&count=1&language=pt`);
     const geoData = await geoResp.json();
-
-    let lat = -8.7531;
-    let lon = -38.9667;
-
+    let lat = -8.7531, lon = -38.9667;
     if (geoData && geoData.results && geoData.results[0]) {
-      lat = geoData.results[0].latitude;
-      lon = geoData.results[0].longitude;
+      lat = geoData.results[0].latitude; lon = geoData.results[0].longitude;
     }
-
     const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
     const data = await response.json();
-    
     if (data && data.current_weather) {
       const temp = Math.round(data.current_weather.temperature);
       const code = data.current_weather.weathercode;
-      
       document.getElementById('weather-temp').innerText = `${temp}°C`;
-      
-      let desc = "Ensolarado";
-      let icon = "☀️";
-      
+      let desc = "Ensolarado", icon = "☀️";
       if (code === 0) { desc = "Céu Limpo"; icon = "☀️"; }
       else if (code >= 1 && code <= 3) { desc = "Parcialmente Nublado"; icon = "⛅"; }
       else if (code >= 45 && code <= 48) { desc = "Nevoeiro"; icon = "🌫️"; }
       else if (code >= 51 && code <= 67) { desc = "Chuva Leve"; icon = "🌧️"; }
       else if (code >= 80 && code <= 99) { desc = "Pancadas / Chuva"; icon = "⛈️"; }
-      
       document.getElementById('weather-desc').innerText = desc;
       document.getElementById('weather-icon').innerText = icon;
     }
