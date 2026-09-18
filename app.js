@@ -522,3 +522,73 @@ async function buscarClimaBelem() {
     document.getElementById('weather-icon').innerText = "☀️";
   }
 }
+// ==========================================
+// EDIÇÃO DE SERVIÇOS JÁ CONCLUÍDOS (FOTOS / OBS)
+// ==========================================
+let servicoEdicaoConclusaoId = null;
+
+function abrirModalEditarConclusao(id) {
+  servicoEdicaoConclusaoId = id;
+  const servicos = carregarServicos();
+  const s = servicos.find(item => item.id === id);
+  if (!s) return;
+
+  document.getElementById('relatorio-conclusao-editar').value = s.conclusaoInfo || '';
+  imagensTempConclusao = s.fotos ? [...s.fotos] : [];
+
+  renderizarPreviewFotosEdicao();
+  document.getElementById('modal-editar-conclusao').style.display = 'flex';
+}
+
+function fecharModalEditarConclusao() {
+  servicoEdicaoConclusaoId = null;
+  imagensTempConclusao = [];
+  document.getElementById('modal-editar-conclusao').style.display = 'none';
+}
+
+function renderizarPreviewFotosEdicao() {
+  const preview = document.getElementById('preview-imagens-editar');
+  preview.innerHTML = '';
+  imagensTempConclusao.forEach((imgSrc, index) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'position: relative; display: inline-block;';
+    div.innerHTML = `
+      <img src="${imgSrc}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc;">
+      <button type="button" onclick="removerFotoEdicao(${index})" style="position: absolute; top: -5px; right: -5px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer;">✕</button>
+    `;
+    preview.appendChild(div);
+  });
+}
+
+function carregarNovasImagensEdicao(event) {
+  const files = Array.from(event.target.files);
+  if (files.length === 0) return;
+
+  files.forEach(file => {
+    comprimirImagem(file, 1000, 1000, 0.8, function(base64Otimizado) {
+      imagensTempConclusao.push(base64Otimizado);
+      renderizarPreviewFotosEdicao();
+    });
+  });
+}
+
+function removerFotoEdicao(index) {
+  imagensTempConclusao.splice(index, 1);
+  renderizarPreviewFotosEdicao();
+}
+
+function confirmarEdicaoConclusao(event) {
+  event.preventDefault();
+  const relatorio = document.getElementById('relatorio-conclusao-editar').value.trim();
+
+  let servicos = carregarServicos();
+  const item = servicos.find(s => s.id === servicoEdicaoConclusaoId);
+
+  if (item) {
+    item.conclusaoInfo = relatorio;
+    item.fotos = imagensTempConclusao;
+    salvarServicos(servicos);
+  }
+
+  fecharModalEditarConclusao();
+}
