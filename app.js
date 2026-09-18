@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'criatorio_marques_servicos';
 let servicoPendentePausaId = null;
 let servicoConclusaoId = null;
+let servicoEdicaoConclusaoId = null;
 let imagensTempConclusao = [];
 let filtroStatusAtual = null;
 
@@ -57,8 +58,8 @@ function salvarServicoFormulario(event) {
   const prioridade = document.getElementById('prioridade-servico').value;
   const observacoes = document.getElementById('obs-servico').value;
 
-  const dataAgendadaVal = document.getElementById('data-agendada').value;
-  const horaAgendadaVal = document.getElementById('hora-agendada').value;
+  const dataAgendadaVal = document.getElementById('data-agendada') ? document.getElementById('data-agendada').value : '';
+  const horaAgendadaVal = document.getElementById('hora-agendada') ? document.getElementById('hora-agendada').value : '';
 
   let statusInicial = 'Pendente';
   let informacaoAgendamento = null;
@@ -115,7 +116,8 @@ function atualizarEstiloCards() {
 }
 
 function filtrarServicos() {
-  const termo = document.getElementById('search-input').value.toLowerCase();
+  const termoInput = document.getElementById('search-input');
+  const termo = termoInput ? termoInput.value.toLowerCase() : '';
   let servicos = carregarServicos();
 
   if (filtroStatusAtual) {
@@ -138,7 +140,7 @@ function renderizarServicos(servicos) {
   if (!container) return;
 
   if (servicos.length === 0) {
-    container.innerHTML = '<p class="empty-msg">Nenhum serviço encontrado.</p>';
+    container.innerHTML = '<p class="empty-msg" style="text-align: center; color: #7f8c8d; margin-top: 20px;">Nenhum serviço encontrado.</p>';
     return;
   }
 
@@ -148,13 +150,13 @@ function renderizarServicos(servicos) {
     const rotuloIniciar = jaIniciouAlgo ? '▶️ Retomar' : '🚀 Iniciar';
 
     return `
-    <div class="service-card">
-      <div class="service-main">
-        <h4>${s.nome.toUpperCase()}</h4>
-        <span class="badge ${s.status.toLowerCase().replace(' ', '-').replace('ú', 'u')}">${s.status}</span>
+    <div class="service-card" style="background: #fff; padding: 14px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+      <div class="service-main" style="display: flex; justify-content: space-between; align-items: center;">
+        <h4 style="margin: 0; color: #1b3b22;">${s.nome.toUpperCase()}</h4>
+        <span class="badge ${s.status.toLowerCase().replace(' ', '-').replace('ú', 'u')}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${s.status}</span>
       </div>
-      <p class="service-info">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data}</p>
-      <p class="service-priority">Prioridade: <strong>${s.prioridade}</strong></p>
+      <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data}</p>
+      <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0;">Prioridade: <strong>${s.prioridade}</strong></p>
       
       ${s.agendamento ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #2980b9; background: #ebf5fb; padding: 6px; border-radius: 6px;">📅 <strong>Agendado para:</strong> ${s.agendamento}</p>` : ''}
 
@@ -179,17 +181,22 @@ function renderizarServicos(servicos) {
           <strong>✅ Relatório de Conclusão:</strong>
           <div>${s.conclusaoInfo}</div>${s.fotos && s.fotos.length > 0 ? `
             <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
-              ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60;">`).join('')}
+              ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60; cursor: pointer;">`).join('')}
             </div>
           ` : ''}
         </div>
       ` : ''}
 
       <div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-        ${(s.status === 'Pendente' || s.status === 'Agendado') ? `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">${rotuloIniciar}</button>` : ''}
-        ${s.status === 'Em execução' ? `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">⏸️ Pausar</button>` : ''}
+        ${(s.status === 'Pendente' || s.status === 'Agendado') ? `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; background: #2e5a3c; color: white; border: none; border-radius: 6px; cursor: pointer;">${rotuloIniciar}</button>` : ''}
+        ${s.status === 'Em execução' ? `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer;">⏸️ Pausar</button>` : ''}
         ${s.status !== 'Concluído' ? `<button onclick="solicitarConclusaoServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>` : ''}
-        ${s.status === 'Concluído' ? `<button onclick="abrirRelatorioCompleto(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #2980b9; color: white; border: none; border-radius: 6px; cursor: pointer;">📄 Resumo</button>` : ''}
+        
+        ${s.status === 'Concluído' ? `
+          <button onclick="abrirRelatorioCompleto(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #2980b9; color: white; border: none; border-radius: 6px; cursor: pointer;">📄 Resumo</button>
+          <button onclick="abrirModalEditarConclusao(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #f39c12; color: white; border: none; border-radius: 6px; cursor: pointer;">📷 Editar Fotos / Obs</button>
+        ` : ''}
+
         <button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>
       </div>
     </div>
@@ -259,7 +266,6 @@ function fecharModalConclusao() {
   document.getElementById('modal-conclusao').style.display = 'none';
 }
 
-// FUNÇÃO PARA REDIMENSIONAR E COMPRIMIR IMAGENS
 function comprimirImagem(file, maxWidth, maxHeight, quality, callback) {
   const reader = new FileReader();
   reader.onload = function(event) {
@@ -286,7 +292,6 @@ function comprimirImagem(file, maxWidth, maxHeight, quality, callback) {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Exporta em JPEG otimizado (80% de qualidade)
       const dataUrl = canvas.toDataURL('image/jpeg', quality);
       callback(dataUrl);
     };
@@ -295,7 +300,6 @@ function comprimirImagem(file, maxWidth, maxHeight, quality, callback) {
   reader.readAsDataURL(file);
 }
 
-// CARREGAR E COMPRIMIR FOTOS NA CONCLUSÃO
 function carregarImagensConclusao(event) {
   const files = Array.from(event.target.files);
   const preview = document.getElementById('preview-imagens');
@@ -305,7 +309,6 @@ function carregarImagensConclusao(event) {
   if (files.length === 0) return;
 
   files.forEach(file => {
-    // Redimensiona para no máximo 1000px de largura/altura com 80% de qualidade
     comprimirImagem(file, 1000, 1000, 0.8, function(base64Otimizado) {
       imagensTempConclusao.push(base64Otimizado);
       
@@ -316,6 +319,7 @@ function carregarImagensConclusao(event) {
     });
   });
 }
+
 function confirmarConclusaoServico(event) {
   event.preventDefault();
   const relatorio = document.getElementById('relatorio-conclusao').value.trim();
@@ -332,6 +336,74 @@ function confirmarConclusaoServico(event) {
     salvarServicos(servicos);
   }
   fecharModalConclusao();
+}
+
+// EDIÇÃO DE CONCLUSÃO (FOTOS / OBSERVAÇÃO)
+function abrirModalEditarConclusao(id) {
+  servicoEdicaoConclusaoId = id;
+  const servicos = carregarServicos();
+  const s = servicos.find(item => item.id === id);
+  if (!s) return;
+
+  document.getElementById('relatorio-conclusao-editar').value = s.conclusaoInfo || '';
+  imagensTempConclusao = s.fotos ? [...s.fotos] : [];
+
+  renderizarPreviewFotosEdicao();
+  document.getElementById('modal-editar-conclusao').style.display = 'flex';
+}
+
+function fecharModalEditarConclusao() {
+  servicoEdicaoConclusaoId = null;
+  imagensTempConclusao = [];
+  document.getElementById('modal-editar-conclusao').style.display = 'none';
+}
+
+function renderizarPreviewFotosEdicao() {
+  const preview = document.getElementById('preview-imagens-editar');
+  if (!preview) return;
+  preview.innerHTML = '';
+  imagensTempConclusao.forEach((imgSrc, index) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'position: relative; display: inline-block;';
+    div.innerHTML = `
+      <img src="${imgSrc}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc;">
+      <button type="button" onclick="removerFotoEdicao(${index})" style="position: absolute; top: -5px; right: -5px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer;">✕</button>
+    `;
+    preview.appendChild(div);
+  });
+}
+
+function carregarNovasImagensEdicao(event) {
+  const files = Array.from(event.target.files);
+  if (files.length === 0) return;
+
+  files.forEach(file => {
+    comprimirImagem(file, 1000, 1000, 0.8, function(base64Otimizado) {
+      imagensTempConclusao.push(base64Otimizado);
+      renderizarPreviewFotosEdicao();
+    });
+  });
+}
+
+function removerFotoEdicao(index) {
+  imagensTempConclusao.splice(index, 1);
+  renderizarPreviewFotosEdicao();
+}
+
+function confirmarEdicaoConclusao(event) {
+  event.preventDefault();
+  const relatorio = document.getElementById('relatorio-conclusao-editar').value.trim();
+
+  let servicos = carregarServicos();
+  const item = servicos.find(s => s.id === servicoEdicaoConclusaoId);
+
+  if (item) {
+    item.conclusaoInfo = relatorio;
+    item.fotos = imagensTempConclusao;
+    salvarServicos(servicos);
+  }
+
+  fecharModalEditarConclusao();
 }
 
 function abrirRelatorioCompleto(id) {
@@ -464,34 +536,7 @@ function salvarPerfilFazenda(event) {
   fecharModalPerfilFazenda();
   buscarClimaBelem();
 }
-<!-- MODAL DE EDIÇÃO DA CONCLUSÃO (FOTOS / OBSERVAÇÃO) -->
-  <div id="modal-editar-conclusao" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>📷 Editar Fotos / Observação da Conclusão</h3>
-        <button type="button" class="btn-close" onclick="fecharModalEditarConclusao()">✕</button>
-      </div>
-      <form onsubmit="confirmarEdicaoConclusao(event)">
-        <div class="form-group">
-          <label for="relatorio-conclusao-editar">Informações / Observações da Conclusão *</label>
-          <textarea id="relatorio-conclusao-editar" rows="3" required></textarea>
-        </div>
-        <div class="form-group">
-          <label>Anexar / Adicionar Fotos da Execução</label>
-          <input type="file" accept="image/*" multiple onchange="carregarNovasImagensEdicao(event)">
-          <div id="preview-imagens-editar" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;"></div>
-        </div>
-        <div class="form-actions">
-          <button type="button" class="btn-cancel" onclick="fecharModalEditarConclusao()">Cancelar</button>
-          <button type="submit" class="btn-primary" style="background: #27ae60;">Salvar Alterações</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
-  <script src="app.js"></script>
-</body>
-</html>
 async function buscarClimaBelem() {
   try {
     const cidadeQuery = encodeURIComponent(dadosFazenda.cidade || 'Belém do São Francisco');
@@ -521,74 +566,4 @@ async function buscarClimaBelem() {
     document.getElementById('weather-desc').innerText = "Ensolarado";
     document.getElementById('weather-icon').innerText = "☀️";
   }
-}
-// ==========================================
-// EDIÇÃO DE SERVIÇOS JÁ CONCLUÍDOS (FOTOS / OBS)
-// ==========================================
-let servicoEdicaoConclusaoId = null;
-
-function abrirModalEditarConclusao(id) {
-  servicoEdicaoConclusaoId = id;
-  const servicos = carregarServicos();
-  const s = servicos.find(item => item.id === id);
-  if (!s) return;
-
-  document.getElementById('relatorio-conclusao-editar').value = s.conclusaoInfo || '';
-  imagensTempConclusao = s.fotos ? [...s.fotos] : [];
-
-  renderizarPreviewFotosEdicao();
-  document.getElementById('modal-editar-conclusao').style.display = 'flex';
-}
-
-function fecharModalEditarConclusao() {
-  servicoEdicaoConclusaoId = null;
-  imagensTempConclusao = [];
-  document.getElementById('modal-editar-conclusao').style.display = 'none';
-}
-
-function renderizarPreviewFotosEdicao() {
-  const preview = document.getElementById('preview-imagens-editar');
-  preview.innerHTML = '';
-  imagensTempConclusao.forEach((imgSrc, index) => {
-    const div = document.createElement('div');
-    div.style.cssText = 'position: relative; display: inline-block;';
-    div.innerHTML = `
-      <img src="${imgSrc}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc;">
-      <button type="button" onclick="removerFotoEdicao(${index})" style="position: absolute; top: -5px; right: -5px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer;">✕</button>
-    `;
-    preview.appendChild(div);
-  });
-}
-
-function carregarNovasImagensEdicao(event) {
-  const files = Array.from(event.target.files);
-  if (files.length === 0) return;
-
-  files.forEach(file => {
-    comprimirImagem(file, 1000, 1000, 0.8, function(base64Otimizado) {
-      imagensTempConclusao.push(base64Otimizado);
-      renderizarPreviewFotosEdicao();
-    });
-  });
-}
-
-function removerFotoEdicao(index) {
-  imagensTempConclusao.splice(index, 1);
-  renderizarPreviewFotosEdicao();
-}
-
-function confirmarEdicaoConclusao(event) {
-  event.preventDefault();
-  const relatorio = document.getElementById('relatorio-conclusao-editar').value.trim();
-
-  let servicos = carregarServicos();
-  const item = servicos.find(s => s.id === servicoEdicaoConclusaoId);
-
-  if (item) {
-    item.conclusaoInfo = relatorio;
-    item.fotos = imagensTempConclusao;
-    salvarServicos(servicos);
-  }
-
-  fecharModalEditarConclusao();
 }
