@@ -259,25 +259,63 @@ function fecharModalConclusao() {
   document.getElementById('modal-conclusao').style.display = 'none';
 }
 
+// FUNÇÃO PARA REDIMENSIONAR E COMPRIMIR IMAGENS
+function comprimirImagem(file, maxWidth, maxHeight, quality, callback) {
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const img = new Image();
+    img.onload = function() {
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Exporta em JPEG otimizado (80% de qualidade)
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      callback(dataUrl);
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// CARREGAR E COMPRIMIR FOTOS NA CONCLUSÃO
 function carregarImagensConclusao(event) {
   const files = Array.from(event.target.files);
   const preview = document.getElementById('preview-imagens');
   preview.innerHTML = '';
   imagensTempConclusao = [];
 
+  if (files.length === 0) return;
+
   files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      imagensTempConclusao.push(e.target.result);
+    // Redimensiona para no máximo 1000px de largura/altura com 80% de qualidade
+    comprimirImagem(file, 1000, 1000, 0.8, function(base64Otimizado) {
+      imagensTempConclusao.push(base64Otimizado);
+      
       const img = document.createElement('img');
-      img.src = e.target.result;
+      img.src = base64Otimizado;
       img.style.cssText = 'width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc;';
       preview.appendChild(img);
-    };
-    reader.readAsDataURL(file);
+    });
   });
 }
-
 function confirmarConclusaoServico(event) {
   event.preventDefault();
   const relatorio = document.getElementById('relatorio-conclusao').value.trim();
