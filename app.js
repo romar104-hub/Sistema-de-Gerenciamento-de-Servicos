@@ -34,9 +34,6 @@ try {
 // Recupera o perfil do usuário (padrão: 'usuario')
 let perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
 
-/* ==========================================================================
-   INICIALIZAÇÃO E CONTROLE DE PERFIL / REDE
-   ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
   carregarDadosFazendaNaTela();
   if (!localStorage.getItem('dadosFazenda')) {
