@@ -1,3 +1,7 @@
+/* ==========================================================================
+   CRIATÓRIO MARQUES - SISTEMA DE GESTÃO DE SERVIÇOS
+   ========================================================================== */
+
 const STORAGE_KEY = 'criatorio_marques_servicos';
 const STORAGE_KEY_AREAS = 'criatorio_marques_areas';
 
@@ -7,23 +11,32 @@ let servicoEdicaoConclusaoId = null;
 let imagensTempConclusao = [];
 let fotoTempAreaBase64 = '';
 let filtroStatusAtual = null;
-
-let dadosFazenda = JSON.parse(localStorage.getItem('dadosFazenda')) || {
-  nome: 'CRIATÓRIO MARQUES',
-  slogan: 'Excelência em Genética e Manejo no Sertão',
-  cidade: 'Belém do São Francisco - PE',
-  logoBase64: ''
-};
-// Define o perfil padrão como 'usuario' ou busca o salvo
-let perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario'; 
-
-function alternarPerfil(novoPerfil) {
-  perfilAtual = novoPerfil;
-  localStorage.setItem('perfil_usuario', novoPerfil);
-  renderizarServicos(); // Recarrega a tela aplicando os bloqueios
-}
 let logoTempBase64 = '';
 
+// Recupera dados salvos da propriedade ou define o padrão
+let dadosFazenda = {};
+try {
+  dadosFazenda = JSON.parse(localStorage.getItem('dadosFazenda')) || {
+    nome: 'CRIATÓRIO MARQUES',
+    slogan: 'Excelência em Genética e Manejo no Sertão',
+    cidade: 'Belém do São Francisco - PE',
+    logoBase64: ''
+  };
+} catch (e) {
+  dadosFazenda = {
+    nome: 'CRIATÓRIO MARQUES',
+    slogan: 'Excelência em Genética e Manejo no Sertão',
+    cidade: 'Belém do São Francisco - PE',
+    logoBase64: ''
+  };
+}
+
+// Recupera o perfil do usuário (padrão: 'usuario')
+let perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
+
+/* ==========================================================================
+   INICIALIZAÇÃO E CONTROLE DE PERFIL / REDE
+   ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
   carregarDadosFazendaNaTela();
   if (!localStorage.getItem('dadosFazenda')) {
@@ -33,27 +46,59 @@ document.addEventListener('DOMContentLoaded', () => {
   atualizarDashboard();
   filtrarServicos();
   atualizarStatusConexao();
+  atualizarLabelPerfil();
 });
-<!-- Exemplo de botão para colocar no topo/cabeçalho -->
-<button id="btn-login-perfil" onclick="solicitarAcessoAdmin()" style="padding: 6px 12px; font-size: 0.8rem; background: #1b3b22; color: white; border: 1px solid #ffffff44; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-  🔑 <span id="label-perfil">Entrar como Admin</span>
-</button>
-// ESCUTADORES DE REDE
+
 window.addEventListener('online', atualizarStatusConexao);
 window.addEventListener('offline', atualizarStatusConexao);
+
+function solicitarAcessoAdmin() {
+  if (perfilAtual === 'usuario') {
+    const senha = prompt("Digite a senha de Administrador:");
+    if (senha === "1234") { // Altere '1234' para a senha de sua preferência
+      perfilAtual = 'admin';
+      localStorage.setItem('perfil_usuario', 'admin');
+      alert("Modo Administrador ativado!");
+    } else if (senha !== null) {
+      alert("Senha incorreta!");
+    }
+  } else {
+    perfilAtual = 'usuario';
+    localStorage.setItem('perfil_usuario', 'usuario');
+    alert("Alternado para Modo Usuário.");
+  }
+  atualizarLabelPerfil();
+  filtrarServicos();
+}
+
+function atualizarLabelPerfil() {
+  const label = document.getElementById('label-perfil');
+  if (label) {
+    label.innerText = perfilAtual === 'admin' ? 'Modo: Admin (Sair)' : 'Entrar como Admin';
+  }
+}
 
 /* ==========================================================================
    GERENCIAMENTO DE DADOS E PERSISTÊNCIA
    ========================================================================== */
 function carregarServicos() {
-  const dados = localStorage.getItem(STORAGE_KEY);
-  return dados ? JSON.parse(dados) : [];
+  try {
+    const dados = localStorage.getItem(STORAGE_KEY);
+    return dados ? JSON.parse(dados) : [];
+  } catch (e) {
+    console.error("Erro ao carregar serviços do localStorage:", e);
+    return [];
+  }
 }
 
 function salvarServicos(servicos) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(servicos));
-  atualizarDashboard();
-  filtrarServicos();
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(servicos));
+    atualizarDashboard();
+    filtrarServicos();
+  } catch (e) {
+    alert("Atenção: Limite de armazenamento local excedido! Tente remover serviços antigos ou fotos.");
+  }
 }
 
 function obterDataHoraAtual() {
@@ -65,13 +110,16 @@ function obterDataHoraAtual() {
    MODAIS E FORMULÁRIOS DE SERVIÇOS
    ========================================================================== */
 function abrirModal() {
-  atualizarSelectAreasServico();
+  if (typeof atualizarSelectAreasServico === 'function') {
+    atualizarSelectAreasServico();
+  }
   document.getElementById('modal-servico').style.display = 'flex';
 }
 
 function fecharModal() {
   document.getElementById('modal-servico').style.display = 'none';
-  document.getElementById('form-servico').reset();
+  const form = document.getElementById('form-servico');
+  if (form) form.reset();
 }
 
 function salvarServicoFormulario(event) {
@@ -118,7 +166,7 @@ function salvarServicoFormulario(event) {
 }
 
 /* ==========================================================================
-   FILTROS E RENDERIZAÇÃO
+   FILTROS E RENDERIZAÇÃO DE LISTAS
    ========================================================================== */
 function filtrarPorStatus(status) {
   if (filtroStatusAtual === status) {
@@ -153,9 +201,9 @@ function filtrarServicos() {
 
   if (termo) {
     servicos = servicos.filter(s =>
-      s.nome.toLowerCase().includes(termo) ||
-      s.local.toLowerCase().includes(termo) ||
-      s.responsavel.toLowerCase().includes(termo)
+      (s.nome && s.nome.toLowerCase().includes(termo)) ||
+      (s.local && s.local.toLowerCase().includes(termo)) ||
+      (s.responsavel && s.responsavel.toLowerCase().includes(termo))
     );
   }
 
@@ -166,30 +214,20 @@ function renderizarServicos(servicos) {
   const container = document.getElementById('lista-servicos');
   if (!container) return;
 
-  if (servicos.length === 0) {
+  // Atualiza visibilidade dos botões de backup e importar para Admin
+  const areaBackup = document.getElementById('btn-backup');
+  const areaImportar = document.getElementById('btn-importar');
+  if (areaBackup) areaBackup.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
+  if (areaImportar) areaImportar.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
+
+  const lista = servicos || carregarServicos();
+
+  if (lista.length === 0) {
     container.innerHTML = '<p class="empty-msg" style="text-align: center; color: #7f8c8d; margin-top: 20px;">Nenhum serviço encontrado.</p>';
     return;
   }
-function alternarModoAcesso() {
-  if (perfilAtual === 'usuario') {
-    const senha = prompt("Digite a senha de Administrador:");
-    if (senha === "1234") { // Troque '1234' pela senha desejada
-      perfilAtual = 'admin';
-      localStorage.setItem('perfil_usuario', 'admin');
-      alert("Modo Administrador ativado!");
-    } else if (senha !== null) {
-      alert("Senha incorreta!");
-    }
-  } else {
-    perfilAtual = 'usuario';
-    localStorage.setItem('perfil_usuario', 'usuario');
-    alert("Alternado para Modo Usuário.");
-  }
-  
-  // Recarrega a tela com os novos bloqueios/permissões aplicados
-  renderizarServicos();
-}
-  container.innerHTML = servicos.map(s => {
+
+  container.innerHTML = lista.map(s => {
     const historico = s.historicoExecucao || [];
     const jaIniciouAlgo = historico.length > 0;
     const rotuloIniciar = jaIniciouAlgo ? '▶️ Retomar' : '🚀 Iniciar';
@@ -200,14 +238,17 @@ function alternarModoAcesso() {
     let acoesHTML = '<div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">';
 
     if (isConcluido) {
-      // Quando concluído: Apenas botões de gestão da conclusão
       acoesHTML += `
         <button onclick="abrirRelatorioCompleto(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #2980b9; color: white; border: none; border-radius: 6px; cursor: pointer;">📄 Resumo</button>
         <button onclick="enviarRelatorioWhatsApp(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #25d366; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📲 WhatsApp</button>
-        <button onclick="abrirModalEditarConclusao(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #f39c12; color: white; border: none; border-radius: 6px; cursor: pointer;">📷 Editar Fotos / Obs</button>
       `;
+      if (perfilAtual === 'admin') {
+        acoesHTML += `
+          <button onclick="abrirModalEditarConclusao(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #f39c12; color: white; border: none; border-radius: 6px; cursor: pointer;">📷 Editar Fotos / Obs</button>
+          <button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>
+        `;
+      }
     } else {
-      // Quando pendente / em execução: Botões de ação normal + Botão Excluir
       if (statusAtual === 'pendente' || statusAtual === 'agendado') {
         acoesHTML += `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; background: #2e5a3c; color: white; border: none; border-radius: 6px; cursor: pointer;">${rotuloIniciar}</button>`;
       }
@@ -215,66 +256,18 @@ function alternarModoAcesso() {
         acoesHTML += `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer;">⏸️ Pausar</button>`;
       }
       acoesHTML += `<button onclick="solicitarConclusaoServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>`;
-      
-      // O botão Excluir só é renderizado para serviços NÃO concluídos
-      acoesHTML += `<button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>`;
+
+      if (perfilAtual === 'admin') {
+        acoesHTML += `<button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>`;
+      }
     }
-function renderizarServicos() {
-  const container = document.getElementById('lista-servicos'); // Ou a sua div/tabela de serviços
-  const listaServicos = carregarServicos();
-  
-  // Atualiza a visibilidade dos botões globais de Backup e Importar no topo
-  const areaBackup = document.getElementById('btn-backup');
-  const areaImportar = document.getElementById('btn-importar');
-  if (areaBackup) areaBackup.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
-  if (areaImportar) areaImportar.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
-
-  let html = '';
-
-  listaServicos.forEach(s => {
-    // -------------------------------------------------------------
-    // 1. MONTAGEM DOS BOTÕES COM BASE NO PERFIL (INSERIR AQUI)
-    // -------------------------------------------------------------
-    let botoesAcao = '';
-
-    // Ações permitidas para TODOS (Usuário e Admin)
-    botoesAcao += `<button onclick="abrirRelatorioCompleto(${s.id})">📄 Resumo</button>`;
-    botoesAcao += `<button onclick="enviarRelatorioWhatsApp(${s.id})">📲 WhatsApp</button>`;
-
-    // Ações EXCLUSIVAS do Administrador (Excluir, Editar, etc.)
-    if (perfilAtual === 'admin') {
-      botoesAcao += `<button onclick="abrirModalEditarConclusao(${s.id})">📷 Editar</button>`;
-      botoesAcao += `<button onclick="excluirServico(${s.id})" class="btn-delete">Excluir</button>`;
-    }
-const perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
-
-// O botão Excluir só é montado se for Admin
-if (perfilAtual === 'admin') {
-  acoesHTML += `<button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>`;
-}
-    // -------------------------------------------------------------
-    // 2. MONTAGEM DO CARD OU DA LINHA DA TABELA
-    // -------------------------------------------------------------
-    html += `
-      <div class="card-servico">
-        <h3>${s.nome || 'Serviço'}</h3>
-        <p>Status: ${s.status}</p>
-        <div class="acoes">
-          ${botoesAcao} <!-- Os botões filtrados entram aqui -->
-        </div>
-      </div>
-    `;
-  });
-
-  container.innerHTML = html;
-}
     acoesHTML += '</div>';
 
     return `
     <div class="service-card" style="background: #fff; padding: 14px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
       <div class="service-main" style="display: flex; justify-content: space-between; align-items: center;">
-        <h4 style="margin: 0; color: #1b3b22;">${s.nome.toUpperCase()}</h4>
-        <span class="badge ${s.status.toLowerCase().replace(' ', '-').replace('ú', 'u')}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${s.status}</span>
+        <h4 style="margin: 0; color: #1b3b22;">${(s.nome || 'Serviço').toUpperCase()}</h4>
+        <span class="badge ${(s.status || '').toLowerCase().replace(' ', '-').replace('ú', 'u')}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${s.status}</span>
       </div>
       <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data}</p>
       <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0;">Prioridade: <strong>${s.prioridade}</strong></p>
@@ -313,6 +306,9 @@ if (perfilAtual === 'admin') {
   }).join('');
 }
 
+/* ==========================================================================
+   AÇÕES DOS SERVIÇOS (INICIAR, PAUSAR, CONCLUIR)
+   ========================================================================== */
 function iniciarServico(id) {
   let servicos = carregarServicos();
   const item = servicos.find(s => s.id === id);
@@ -338,7 +334,8 @@ function solicitarPausaServico(id) {
 
 function fecharModalJustificativa() {
   servicoPendentePausaId = null;
-  document.getElementById('texto-justificativa').value = '';
+  const txt = document.getElementById('texto-justificativa');
+  if (txt) txt.value = '';
   document.getElementById('modal-justificativa').style.display = 'none';
 }
 
@@ -375,7 +372,8 @@ function solicitarConclusaoServico(id) {
 function fecharModalConclusao() {
   servicoConclusaoId = null;
   imagensTempConclusao = [];
-  document.getElementById('form-conclusao').reset();
+  const form = document.getElementById('form-conclusao');
+  if (form) form.reset();
   document.getElementById('modal-conclusao').style.display = 'none';
 }
 
@@ -452,7 +450,7 @@ function confirmarConclusaoServico(event) {
 }
 
 /* ==========================================================================
-   EDIÇÃO DE CONCLUSÃO (FOTOS / OBSERVAÇÕES)
+   EDIÇÃO DE CONCLUSÃO (ADMIN)
    ========================================================================== */
 function abrirModalEditarConclusao(id) {
   servicoEdicaoConclusaoId = id;
@@ -573,7 +571,7 @@ function abrirRelatorioCompleto(id) {
 
   container.innerHTML = `
     <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-      <h4 style="margin: 0 0 6px 0; color: #2e5a3c;">${s.nome.toUpperCase()}</h4>
+      <h4 style="margin: 0 0 6px 0; color: #2e5a3c;">${(s.nome || 'Serviço').toUpperCase()}</h4>
       <p style="margin: 0; font-size: 0.9rem; color: #64748b;">📍 Local: ${s.local} | 👤 Responsável: ${s.responsavel}</p>
       <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #64748b;">📅 Criado: ${s.data} ${s.agendamento ? '| 📅 Agendado: ' + s.agendamento : ''}</p>
     </div>
@@ -649,24 +647,24 @@ function atualizarDashboard() {
 }
 
 /* ==========================================================================
-   PERFIL DA FAZENDA E CLIMA
+   PERFIL DA FAZENDA E CLIMA (BELÉM DO SÃO FRANCISCO - PE)
    ========================================================================== */
 function carregarDadosFazendaNaTela() {
   if (document.getElementById('header-nome-fazenda')) {
-    document.getElementById('header-nome-fazenda').innerText = dadosFazenda.nome.toUpperCase();
+    document.getElementById('header-nome-fazenda').innerText = (dadosFazenda.nome || 'CRIATÓRIO MARQUES').toUpperCase();
   }
   if (document.getElementById('header-slogan')) {
-    document.getElementById('header-slogan').innerText = `"${dadosFazenda.slogan}"`;
+    document.getElementById('header-slogan').innerText = `"${dadosFazenda.slogan || ''}"`;
   }
   if (document.getElementById('header-cidade')) {
-    document.getElementById('header-cidade').innerText = `📍 ${dadosFazenda.cidade}`;
+    document.getElementById('header-cidade').innerText = `📍 ${dadosFazenda.cidade || 'Belém do São Francisco - PE'}`;
   }
   const logoContainer = document.getElementById('header-logo');
   if (logoContainer) {
     if (dadosFazenda.logoBase64) {
       logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo">`;
     } else {
-      logoContainer.innerText = dadosFazenda.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'CM';
+      logoContainer.innerText = dadosFazenda.nome ? dadosFazenda.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'CM';
     }
   }
 }
@@ -715,7 +713,8 @@ async function buscarClimaBelem() {
     const geoData = await geoResp.json();
     let lat = -8.7531, lon = -38.9667;
     if (geoData && geoData.results && geoData.results[0]) {
-      lat = geoData.results[0].latitude; lon = geoData.results[0].longitude;
+      lat = geoData.results[0].latitude; 
+      lon = geoData.results[0].longitude;
     }
     const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
     const data = await response.json();
@@ -741,166 +740,13 @@ async function buscarClimaBelem() {
 
 function atualizarStatusConexao() {
   const badge = document.getElementById('status-conexao');
-  const dot = document.getElementById('dot-conexao');
-  const texto = document.getElementById('texto-conexao');
-
-  if (!badge || !dot || !texto) return;
-
-  if (navigator.onLine) {
-    dot.style.background = '#27ae60';
-    texto.innerText = 'Online';
-    badge.style.background = '#eafaf1';
-    badge.style.color = '#1e7e34';
-  } else {
-    dot.style.background = '#e74c3c';
-    texto.innerText = 'Offline (Modo Campo)';
-    badge.style.background = '#fadbd8';
-    badge.style.color = '#78281f';
-  }
-}
-
-/* ==========================================================================
-   GERENCIAMENTO DE ÁREAS CADASTRADAS
-   ========================================================================== */
-function carregarAreas() {
-  const dados = localStorage.getItem(STORAGE_KEY_AREAS);
-  return dados ? JSON.parse(dados) : [
-    { id: 1, nome: 'Entrada', foto: '' },
-    { id: 2, nome: 'Curral', foto: '' },
-    { id: 3, nome: 'Baia', foto: '' },
-    { id: 4, nome: 'Piquete', foto: '' },
-    { id: 5, nome: 'Maternidade', foto: '' },
-    { id: 6, nome: 'Galinheiro', foto: '' },
-    { id: 7, nome: 'Quarto da Ração', foto: '' }
-  ];
-}
-
-function salvarAreas(areas) {
-  localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
-  renderizarListaAreas();
-  atualizarSelectAreasServico();
-}
-
-function atualizarSelectAreasServico() {
-  const select = document.getElementById('local-servico');
-  if (!select) return;
-
-  const areas = carregarAreas();
-  select.innerHTML = '<option value="">Selecione o local / área</option>' + 
-    areas.map(a => `<option value="${a.nome}">${a.nome}</option>`).join('');
-}
-
-function abrirModalAreas() {
-  renderizarListaAreas();
-  document.getElementById('modal-areas').style.display = 'flex';
-}
-
-function fecharModalAreas() {
-  fotoTempAreaBase64 = '';
-  if (document.getElementById('nome-area')) document.getElementById('nome-area').value = '';
-  if (document.getElementById('preview-foto-area')) document.getElementById('preview-foto-area').innerHTML = '';
-  document.getElementById('modal-areas').style.display = 'none';
-}
-
-function carregarFotoArea(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  comprimirImagem(file, 800, 800, 0.8, function(base64Otimizado) {
-    fotoTempAreaBase64 = base64Otimizado;
-    document.getElementById('preview-foto-area').innerHTML = `<img src="${base64Otimizado}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60;">`;
-  });
-}
-
-function salvarNovaArea(event) {
-  event.preventDefault();
-  const nome = document.getElementById('nome-area').value.trim();
-  if (!nome) return;
-
-  const areas = carregarAreas();
-  areas.push({
-    id: Date.now(),
-    nome: nome,
-    foto: fotoTempAreaBase64
-  });
-
-  salvarAreas(areas);
-  fecharModalAreas();
-  abrirModalAreas();
-}
-
-function excluirArea(id) {
-  if (confirm('Deseja realmente remover esta área?')) {
-    let areas = carregarAreas();
-    salvarAreas(areas.filter(a => a.id !== id));
-  }
-}
-
-function renderizarListaAreas() {
-  const container = document.getElementById('lista-areas-cadastradas');
-  if (!container) return;
-  const areas = carregarAreas();
-
-  if (areas.length === 0) {
-    container.innerHTML = '<p style="font-size: 0.85rem; color: #888;">Nenhuma área cadastrada.</p>';
-    return;
-  }
-
-  container.innerHTML = areas.map(a => `
-    <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 6px;">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        ${a.foto ? `<img src="${a.foto}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px;">` : '📍'}
-        <span style="font-size: 0.9rem; font-weight: 500;">${a.nome}</span>
-      </div>
-      <button onclick="excluirArea(${a.id})" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; font-size: 0.9rem;">✕</button>
-    </div>
-  `).join('');
-}
-// Define a senha de administrador (Altere para a sua senha preferida)
-const SENHA_ADMIN = "1234";
-
-function solicitarAcessoAdmin() {
-  const perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
-
-  if (perfilAtual === 'usuario') {
-    // Solicita a senha para entrar no modo Admin
-    const senhaDigitada = prompt("🔐 Digite a senha do Administrador:");
-    
-    if (senhaDigitada === SENHA_ADMIN) {
-      localStorage.setItem('perfil_usuario', 'admin');
-      alert("✅ Modo Administrador ativado!");
-    } else if (senhaDigitada !== null) {
-      alert("❌ Senha incorreta!");
-    }
-  } else {
-    // Se já for admin, clica para voltar para o modo usuário comum
-    if (confirm("Deseja sair do modo Administrador e voltar para o perfil Usuário?")) {
-      localStorage.setItem('perfil_usuario', 'usuario');
-      alert("ℹ️ Você voltou para o modo Usuário comum.");
+  if (badge) {
+    if (navigator.onLine) {
+      badge.innerText = 'Online';
+      badge.style.background = '#27ae60';
+    } else {
+      badge.innerText = 'Offline';
+      badge.style.background = '#e74c3c';
     }
   }
-
-  // Recarrega os botões da tela com o perfil atualizado
-  atualizarInterfacePorPerfil();
-  if (typeof filtrarServicos === 'function') filtrarServicos();
 }
-
-function atualizarInterfacePorPerfil() {
-  const perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
-  const labelPerfil = document.getElementById('label-perfil');
-  const btnBackup = document.getElementById('btn-backup');
-  const btnImportar = document.getElementById('btn-importar');
-
-  // Atualiza o texto do botão de login
-  if (labelPerfil) {
-    labelPerfil.innerText = (perfilAtual === 'admin') ? 'Modo Admin (Sair)' : 'Entrar como Admin';
-  }
-
-  // Oculta ou exibe botões de Backup e Importar no topo
-  if (btnBackup) btnBackup.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
-  if (btnImportar) btnImportar.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
-}
-
-// Executa ao carregar a página para definir os botões visíveis
-document.addEventListener('DOMContentLoaded', () => {
-  atualizarInterfacePorPerfil();
-});
