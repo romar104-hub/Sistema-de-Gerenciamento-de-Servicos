@@ -34,7 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
   filtrarServicos();
   atualizarStatusConexao();
 });
-
+<!-- Exemplo de botão para colocar no topo/cabeçalho -->
+<button id="btn-login-perfil" onclick="solicitarAcessoAdmin()" style="padding: 6px 12px; font-size: 0.8rem; background: #1b3b22; color: white; border: 1px solid #ffffff44; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+  🔑 <span id="label-perfil">Entrar como Admin</span>
+</button>
 // ESCUTADORES DE REDE
 window.addEventListener('online', atualizarStatusConexao);
 window.addEventListener('offline', atualizarStatusConexao);
@@ -243,7 +246,12 @@ function renderizarServicos() {
       botoesAcao += `<button onclick="abrirModalEditarConclusao(${s.id})">📷 Editar</button>`;
       botoesAcao += `<button onclick="excluirServico(${s.id})" class="btn-delete">Excluir</button>`;
     }
+const perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
 
+// O botão Excluir só é montado se for Admin
+if (perfilAtual === 'admin') {
+  acoesHTML += `<button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>`;
+}
     // -------------------------------------------------------------
     // 2. MONTAGEM DO CARD OU DA LINHA DA TABELA
     // -------------------------------------------------------------
@@ -847,3 +855,52 @@ function renderizarListaAreas() {
     </div>
   `).join('');
 }
+// Define a senha de administrador (Altere para a sua senha preferida)
+const SENHA_ADMIN = "1234";
+
+function solicitarAcessoAdmin() {
+  const perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
+
+  if (perfilAtual === 'usuario') {
+    // Solicita a senha para entrar no modo Admin
+    const senhaDigitada = prompt("🔐 Digite a senha do Administrador:");
+    
+    if (senhaDigitada === SENHA_ADMIN) {
+      localStorage.setItem('perfil_usuario', 'admin');
+      alert("✅ Modo Administrador ativado!");
+    } else if (senhaDigitada !== null) {
+      alert("❌ Senha incorreta!");
+    }
+  } else {
+    // Se já for admin, clica para voltar para o modo usuário comum
+    if (confirm("Deseja sair do modo Administrador e voltar para o perfil Usuário?")) {
+      localStorage.setItem('perfil_usuario', 'usuario');
+      alert("ℹ️ Você voltou para o modo Usuário comum.");
+    }
+  }
+
+  // Recarrega os botões da tela com o perfil atualizado
+  atualizarInterfacePorPerfil();
+  if (typeof filtrarServicos === 'function') filtrarServicos();
+}
+
+function atualizarInterfacePorPerfil() {
+  const perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
+  const labelPerfil = document.getElementById('label-perfil');
+  const btnBackup = document.getElementById('btn-backup');
+  const btnImportar = document.getElementById('btn-importar');
+
+  // Atualiza o texto do botão de login
+  if (labelPerfil) {
+    labelPerfil.innerText = (perfilAtual === 'admin') ? 'Modo Admin (Sair)' : 'Entrar como Admin';
+  }
+
+  // Oculta ou exibe botões de Backup e Importar no topo
+  if (btnBackup) btnBackup.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
+  if (btnImportar) btnImportar.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
+}
+
+// Executa ao carregar a página para definir os botões visíveis
+document.addEventListener('DOMContentLoaded', () => {
+  atualizarInterfacePorPerfil();
+});
