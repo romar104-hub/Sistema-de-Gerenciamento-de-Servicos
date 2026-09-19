@@ -14,7 +14,14 @@ let dadosFazenda = JSON.parse(localStorage.getItem('dadosFazenda')) || {
   cidade: 'Belém do São Francisco - PE',
   logoBase64: ''
 };
+// Define o perfil padrão como 'usuario' ou busca o salvo
+let perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario'; 
 
+function alternarPerfil(novoPerfil) {
+  perfilAtual = novoPerfil;
+  localStorage.setItem('perfil_usuario', novoPerfil);
+  renderizarServicos(); // Recarrega a tela aplicando os bloqueios
+}
 let logoTempBase64 = '';
 
 document.addEventListener('DOMContentLoaded', () => {
