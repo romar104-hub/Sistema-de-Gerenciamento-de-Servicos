@@ -1,8 +1,11 @@
 const STORAGE_KEY = 'criatorio_marques_servicos';
+const STORAGE_KEY_AREAS = 'criatorio_marques_areas';
+
 let servicoPendentePausaId = null;
 let servicoConclusaoId = null;
 let servicoEdicaoConclusaoId = null;
 let imagensTempConclusao = [];
+let fotoTempAreaBase64 = '';
 let filtroStatusAtual = null;
 
 let dadosFazenda = JSON.parse(localStorage.getItem('dadosFazenda')) || {
@@ -22,8 +25,16 @@ document.addEventListener('DOMContentLoaded', () => {
   buscarClimaBelem();
   atualizarDashboard();
   filtrarServicos();
+  atualizarStatusConexao();
 });
 
+// ESCUTADORES DE REDE
+window.addEventListener('online', atualizarStatusConexao);
+window.addEventListener('offline', atualizarStatusConexao);
+
+/* ==========================================================================
+   GERENCIAMENTO DE DADOS E PERSISTÊNCIA
+   ========================================================================== */
 function carregarServicos() {
   const dados = localStorage.getItem(STORAGE_KEY);
   return dados ? JSON.parse(dados) : [];
@@ -40,7 +51,11 @@ function obterDataHoraAtual() {
   return agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+/* ==========================================================================
+   MODAIS E FORMULÁRIOS DE SERVIÇOS
+   ========================================================================== */
 function abrirModal() {
+  atualizarSelectAreasServico();
   document.getElementById('modal-servico').style.display = 'flex';
 }
 
@@ -92,13 +107,15 @@ function salvarServicoFormulario(event) {
   fecharModal();
 }
 
+/* ==========================================================================
+   FILTROS E RENDERIZAÇÃO
+   ========================================================================== */
 function filtrarPorStatus(status) {
   if (filtroStatusAtual === status) {
     filtroStatusAtual = null;
   } else {
     filtroStatusAtual = status;
   }
-  
   atualizarEstiloCards();
   filtrarServicos();
 }
@@ -108,7 +125,7 @@ function atualizarEstiloCards() {
   if (document.getElementById('card-pendentes')) document.getElementById('card-pendentes').classList.toggle('ativo', filtroStatusAtual === 'Pendente');
   if (document.getElementById('card-execucao')) document.getElementById('card-execucao').classList.toggle('ativo', filtroStatusAtual === 'Em execução');
   if (document.getElementById('card-concluidos')) document.getElementById('card-concluidos').classList.toggle('ativo', filtroStatusAtual === 'Concluído');
-  
+
   const titulo = document.getElementById('titulo-lista');
   if (titulo) {
     titulo.innerText = filtroStatusAtual ? `Serviços (${filtroStatusAtual})` : 'Serviços recentes';
@@ -125,7 +142,7 @@ function filtrarServicos() {
   }
 
   if (termo) {
-    servicos = servicos.filter(s => 
+    servicos = servicos.filter(s =>
       s.nome.toLowerCase().includes(termo) ||
       s.local.toLowerCase().includes(termo) ||
       s.responsavel.toLowerCase().includes(termo)
@@ -149,6 +166,30 @@ function renderizarServicos(servicos) {
     const jaIniciouAlgo = historico.length > 0;
     const rotuloIniciar = jaIniciouAlgo ? '▶️ Retomar' : '🚀 Iniciar';
 
+    const statusAtual = (s.status || '').toString().toLowerCase().trim();
+    const isConcluido = statusAtual === 'concluído' || statusAtual === 'concluido';
+
+    let acoesHTML = '<div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">';
+
+    if (isConcluido) {
+      acoesHTML += `
+        <button onclick="abrirRelatorioCompleto(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #2980b9; color: white; border: none; border-radius: 6px; cursor: pointer;">📄 Resumo</button>
+        <button onclick="enviarRelatorioWhatsApp(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #25d366; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📲 WhatsApp</button>
+        <button onclick="abrirModalEditarConclusao(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #f39c12; color: white; border: none; border-radius: 6px; cursor: pointer;">📷 Editar Fotos / Obs</button>
+      `;
+    } else {
+      if (statusAtual === 'pendente' || statusAtual === 'agendado') {
+        acoesHTML += `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; background: #2e5a3c; color: white; border: none; border-radius: 6px; cursor: pointer;">${rotuloIniciar}</button>`;
+      }
+      if (statusAtual === 'em execução' || statusAtual === 'em execucao') {
+        acoesHTML += `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer;">⏸️ Pausar</button>`;
+      }
+      acoesHTML += `<button onclick="solicitarConclusaoServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>`;
+    }
+
+    acoesHTML += `<button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>`;
+    acoesHTML += '</div>';
+
     return `
     <div class="service-card" style="background: #fff; padding: 14px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
       <div class="service-main" style="display: flex; justify-content: space-between; align-items: center;">
@@ -157,11 +198,10 @@ function renderizarServicos(servicos) {
       </div>
       <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data}</p>
       <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0;">Prioridade: <strong>${s.prioridade}</strong></p>
-      
-      ${s.agendamento ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #2980b9; background: #ebf5fb; padding: 6px; border-radius: 6px;">📅 <strong>Agendado para:</strong> ${s.agendamento}</p>` : ''}
 
+      ${s.agendamento ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #2980b9; background: #ebf5fb; padding: 6px; border-radius: 6px;">📅 <strong>Agendado para:</strong> ${s.agendamento}</p>` : ''}
       ${s.observacoes ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #444; background: #f9f9f9; padding: 6px; border-radius: 6px;">📝 <strong>Obs:</strong> ${s.observacoes}</p>` : ''}
-      
+
       ${historico.length > 0 ? `
         <div style="font-size: 0.8rem; margin-top: 8px; color: #2c3e50; background: #f1f5f9; padding: 8px; border-radius: 6px; border-left: 3px solid #2e5a3c;">
           <strong>⏱️ Registros de Execução:</strong>
@@ -187,39 +227,15 @@ function renderizarServicos(servicos) {
         </div>
       ` : ''}
 
-  // ✅ CÓDIGO NOVO PARA COLAR NO LUGAR:
-const statusAtual = (s.status || '').toString().toLowerCase().trim();
-const isConcluido = statusAtual === 'concluído' || statusAtual === 'concluido';
-
-let acoesHTML = '<div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">';
-
-if (isConcluido) {
-  // Apenas opções de Resumo, WhatsApp e Edição para Concluídos
-  acoesHTML += `
-    <button onclick="abrirRelatorioCompleto(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #2980b9; color: white; border: none; border-radius: 6px; cursor: pointer;">📄 Resumo</button>
-    <button onclick="enviarRelatorioWhatsApp(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #25d366; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📲 WhatsApp</button>
-    <button onclick="abrirModalEditarConclusao(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #f39c12; color: white; border: none; border-radius: 6px; cursor: pointer;">📷 Editar Fotos / Obs</button>
-  `;
-} else {
-  // Ações normais para Pendentes / Em Execução / Agendados
-  if (statusAtual === 'pendente' || statusAtual === 'agendado') {
-    acoesHTML += `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; background: #2e5a3c; color: white; border: none; border-radius: 6px; cursor: pointer;">${rotuloIniciar}</button>`;
-  }
-  if (statusAtual === 'em execução' || statusAtual === 'em execucao') {
-    acoesHTML += `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer;">⏸️ Pausar</button>`;
-  }
-  acoesHTML += `<button onclick="solicitarConclusaoServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>`;
-  acoesHTML += `<button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>`;
-}
-
-acoesHTML += '</div>';
-
-        <button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>
-      </div>
+      ${acoesHTML}
     </div>
-  `}).join('');
+  `;
+  }).join('');
 }
 
+/* ==========================================================================
+   AÇÕES DE EXECUÇÃO E PAUSA
+   ========================================================================== */
 function iniciarServico(id) {
   let servicos = carregarServicos();
   const item = servicos.find(s => s.id === id);
@@ -269,6 +285,9 @@ function confirmarPausaServico() {
   fecharModalJustificativa();
 }
 
+/* ==========================================================================
+   PROCESSAMENTO DE IMAGENS E CONCLUSÃO
+   ========================================================================== */
 function solicitarConclusaoServico(id) {
   servicoConclusaoId = id;
   imagensTempConclusao = [];
@@ -328,7 +347,7 @@ function carregarImagensConclusao(event) {
   files.forEach(file => {
     comprimirImagem(file, 1000, 1000, 0.8, function(base64Otimizado) {
       imagensTempConclusao.push(base64Otimizado);
-      
+
       const img = document.createElement('img');
       img.src = base64Otimizado;
       img.style.cssText = 'width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc;';
@@ -355,7 +374,9 @@ function confirmarConclusaoServico(event) {
   fecharModalConclusao();
 }
 
-// EDIÇÃO DE CONCLUSÃO (FOTOS / OBSERVAÇÃO)
+/* ==========================================================================
+   EDIÇÃO DE CONCLUSÃO (FOTOS / OBSERVAÇÕES)
+   ========================================================================== */
 function abrirModalEditarConclusao(id) {
   servicoEdicaoConclusaoId = id;
   const servicos = carregarServicos();
@@ -423,7 +444,9 @@ function confirmarEdicaoConclusao(event) {
   fecharModalEditarConclusao();
 }
 
-// ENVIAR RELATÓRIO VIA WHATSAPP
+/* ==========================================================================
+   RELATÓRIOS E COMPARTILHAMENTO
+   ========================================================================== */
 function enviarRelatorioWhatsApp(id) {
   const servicos = carregarServicos();
   const s = servicos.find(item => item.id === id);
@@ -439,7 +462,7 @@ function enviarRelatorioWhatsApp(id) {
   mensagem += `👤 *Responsável:* ${s.responsavel}\n`;
   mensagem += `📅 *Criado em:* ${s.data}\n`;
   if (s.agendamento) mensagem += `🗓️ *Agendado para:* ${s.agendamento}\n`;
-  
+
   if (s.observacoes) {
     mensagem += `\n📝 *Orientações:* ${s.observacoes}\n`;
   }
@@ -477,21 +500,21 @@ function abrirRelatorioCompleto(id) {
       <p style="margin: 0; font-size: 0.9rem; color: #64748b;">📍 Local: ${s.local} | 👤 Responsável: ${s.responsavel}</p>
       <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #64748b;">📅 Criado: ${s.data} ${s.agendamento ? '| 📅 Agendado: ' + s.agendamento : ''}</p>
     </div>
-    <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+    <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: 10px;">
       <strong>⏱️ Histórico e Linha do Tempo:</strong>
       <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem;">
         ${historico.map(h => `<div style="border-bottom: 1px dashed #e2e8f0; padding: 4px 0;"><strong>${h.icone}${h.acao}:</strong> ${h.dataHora}${h.detalhes ? `<div style="color: #c0392b;">Motivo: ${h.detalhes}</div>` : ''}</div>`).join('')}
       </div>
     </div>
-    <div style="background: #f0fdf4; padding: 10px; border-radius: 6px; border: 1px solid #bbf7d0;">
+    <div style="background: #f0fdf4; padding: 10px; border-radius: 6px; border: 1px solid #bbf7d0; margin-top: 10px;">
       <strong style="color: #166534;">✅ Conclusão:</strong>
-      <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #15803d;">${s.conclusaoInfo}</p>
+      <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #15803d;">${s.conclusaoInfo || 'Nenhuma informação detalhada.'}</p>
     </div>
     ${s.fotos && s.fotos.length > 0 ? `
-      <div>
+      <div style="margin-top: 10px;">
         <strong>📸 Comprovantes:</strong>
         <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
-          ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #27ae60;">`).join('')}
+          ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #27ae60; cursor: pointer;">`).join('')}
         </div>
       </div>
     ` : ''}
@@ -511,6 +534,9 @@ function excluirServico(id) {
   }
 }
 
+/* ==========================================================================
+   BACKUP E RESTAURAÇÃO
+   ========================================================================== */
 function exportarBackup() {
   const dados = localStorage.getItem(STORAGE_KEY) || '[]';
   const blob = new Blob([dados], { type: 'application/json' });
@@ -545,6 +571,9 @@ function atualizarDashboard() {
   }
 }
 
+/* ==========================================================================
+   PERFIL DA FAZENDA E CLIMA
+   ========================================================================== */
 function carregarDadosFazendaNaTela() {
   document.getElementById('header-nome-fazenda').innerText = dadosFazenda.nome.toUpperCase();
   document.getElementById('header-slogan').innerText = `"${dadosFazenda.slogan}"`;
@@ -624,7 +653,7 @@ async function buscarClimaBelem() {
     document.getElementById('weather-icon').innerText = "☀️";
   }
 }
-// ATUALIZAR INDICADOR DE CONECTIVIDADE
+
 function atualizarStatusConexao() {
   const badge = document.getElementById('status-conexao');
   const dot = document.getElementById('dot-conexao');
@@ -644,9 +673,10 @@ function atualizarStatusConexao() {
     badge.style.color = '#78281f';
   }
 }
-const STORAGE_KEY_AREAS = 'criatorio_marques_areas';
-let fotoTempAreaBase64 = '';
 
+/* ==========================================================================
+   GERENCIAMENTO DE ÁREAS CADASTRADAS
+   ========================================================================== */
 function carregarAreas() {
   const dados = localStorage.getItem(STORAGE_KEY_AREAS);
   return dados ? JSON.parse(dados) : [
@@ -670,11 +700,7 @@ function abrirModalAreas() {
   renderizarListaAreas();
   document.getElementById('modal-areas').style.display = 'flex';
 }
-// Garantir que ao abrir o modal de novo serviço, o select de áreas está atualizado
-function abrirModal() {
-  atualizarSelectAreasServico();
-  document.getElementById('modal-servico').style.display = 'flex';
-}
+
 function fecharModalAreas() {
   fotoTempAreaBase64 = '';
   document.getElementById('nome-area').value = '';
@@ -726,7 +752,7 @@ function renderizarListaAreas() {
   }
 
   container.innerHTML = areas.map(a => `
-    <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+    <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 6px;">
       <div style="display: flex; align-items: center; gap: 10px;">
         ${a.foto ? `<img src="${a.foto}" onclick="ampliarImagem('${a.foto}')" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; cursor: pointer;">` : '<span style="font-size: 1.2rem;">📍</span>'}
         <strong style="font-size: 0.9rem; color: #1b3b22;">${a.nome}</strong>
@@ -743,11 +769,3 @@ function atualizarSelectAreasServico() {
   const areas = carregarAreas();
   datalist.innerHTML = areas.map(a => `<option value="${a.nome}">`).join('');
 }
-// OUVINTES DE EVENTO DE REDE
-window.addEventListener('online', atualizarStatusConexao);
-window.addEventListener('offline', atualizarStatusConexao);
-
-// Chamar a função na inicialização
-document.addEventListener('DOMContentLoaded', () => {
-  atualizarStatusConexao();
-});
