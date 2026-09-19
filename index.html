@@ -103,7 +103,36 @@
       </div>
     </div>
   </header>
+<!-- CABEÇALHO SUPERIOR DA PROPRIEDADE -->
+<header style="background: #1b3b22; color: white; padding: 16px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+    
+    <!-- DADOS DA PROPRIEDADE -->
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div id="header-logo" style="width: 48px; height: 48px; border-radius: 50%; background: #27ae60; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden;">CM</div>
+      <div>
+        <h2 id="header-nome-fazenda" style="margin: 0; font-size: 1.1rem; letter-spacing: 0.5px;">CRIATÓRIO MARQUES</h2>
+        <p id="header-slogan" style="margin: 2px 0 0 0; font-size: 0.75rem; color: #a3e635; font-style: italic;">"Excelência em Genética e Manejo no Sertão"</p>
+        <span id="header-cidade" style="font-size: 0.75rem; color: #cbd5e1;">📍 Belém do São Francisco - PE</span>
+      </div>
+    </div>
 
+    <!-- BOTOES DE AÇÃO NO TOPO DA TELA -->
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      
+      <!-- 📍 NOVO BOTÃO DE ÁREAS NO TOPO SUPERIOR -->
+      <button type="button" onclick="abrirModalAreas()" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+        📍 Áreas da Propriedade
+      </button>
+
+      <!-- BOTÃO DE EDITAR PERFIL DA FAZENDA -->
+      <button type="button" onclick="abrirModalPerfilFazenda()" style="padding: 6px 10px; font-size: 0.75rem; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; cursor: pointer;">
+        ⚙️ Editar
+      </button>
+    </div>
+
+  </div>
+</header>
   <main class="container" style="margin-top: 15px;">
     <!-- DASHBOARD COM 4 CARDS (INCLUINDO AGENDADOS) -->
     <section class="cards-grid">
