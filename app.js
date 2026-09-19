@@ -628,7 +628,101 @@ function atualizarStatusConexao() {
     badge.style.color = '#78281f';
   }
 }
+const STORAGE_KEY_AREAS = 'criatorio_marques_areas';
+let fotoTempAreaBase64 = '';
 
+function carregarAreas() {
+  const dados = localStorage.getItem(STORAGE_KEY_AREAS);
+  return dados ? JSON.parse(dados) : [
+    { id: 1, nome: 'Entrada', foto: '' },
+    { id: 2, nome: 'Curral', foto: '' },
+    { id: 3, nome: 'Baia', foto: '' },
+    { id: 4, nome: 'Piquete', foto: '' },
+    { id: 5, nome: 'Maternidade', foto: '' },
+    { id: 6, nome: 'Galinheiro', foto: '' },
+    { id: 7, nome: 'Quarto da Ração', foto: '' }
+  ];
+}
+
+function salvarAreas(areas) {
+  localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
+  renderizarListaAreas();
+  atualizarSelectAreasServico();
+}
+
+function abrirModalAreas() {
+  renderizarListaAreas();
+  document.getElementById('modal-areas').style.display = 'flex';
+}
+
+function fecharModalAreas() {
+  fotoTempAreaBase64 = '';
+  document.getElementById('nome-area').value = '';
+  document.getElementById('preview-foto-area').innerHTML = '';
+  document.getElementById('modal-areas').style.display = 'none';
+}
+
+function carregarFotoArea(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  comprimirImagem(file, 800, 800, 0.8, function(base64Otimizado) {
+    fotoTempAreaBase64 = base64Otimizado;
+    document.getElementById('preview-foto-area').innerHTML = `<img src="${base64Otimizado}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60;">`;
+  });
+}
+
+function salvarNovaArea(event) {
+  event.preventDefault();
+  const nome = document.getElementById('nome-area').value.trim();
+  if (!nome) return;
+
+  const areas = carregarAreas();
+  areas.push({
+    id: Date.now(),
+    nome: nome,
+    foto: fotoTempAreaBase64
+  });
+
+  salvarAreas(areas);
+  fecharModalAreas();
+  abrirModalAreas();
+}
+
+function excluirArea(id) {
+  if (confirm('Deseja realmente remover esta área?')) {
+    let areas = carregarAreas();
+    salvarAreas(areas.filter(a => a.id !== id));
+  }
+}
+
+function renderizarListaAreas() {
+  const container = document.getElementById('lista-areas-cadastradas');
+  if (!container) return;
+  const areas = carregarAreas();
+
+  if (areas.length === 0) {
+    container.innerHTML = '<p style="font-size: 0.85rem; color: #888;">Nenhuma área cadastrada.</p>';
+    return;
+  }
+
+  container.innerHTML = areas.map(a => `
+    <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        ${a.foto ? `<img src="${a.foto}" onclick="ampliarImagem('${a.foto}')" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; cursor: pointer;">` : '<span style="font-size: 1.2rem;">📍</span>'}
+        <strong style="font-size: 0.9rem; color: #1b3b22;">${a.nome}</strong>
+      </div>
+      <button onclick="excluirArea(${a.id})" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">Excluir</button>
+    </div>
+  `).join('');
+}
+
+function atualizarSelectAreasServico() {
+  const selectLocal = document.getElementById('local-servico');
+  if (!selectLocal || selectLocal.tagName !== 'SELECT') return;
+
+  const areas = carregarAreas();
+  selectLocal.innerHTML = areas.map(a => `<option value="${a.nome}">${a.nome}</option>`).join('');
+}
 // OUVINTES DE EVENTO DE REDE
 window.addEventListener('online', atualizarStatusConexao);
 window.addEventListener('offline', atualizarStatusConexao);
