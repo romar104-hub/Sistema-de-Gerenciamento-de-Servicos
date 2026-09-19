@@ -173,12 +173,13 @@
           <input type="text" id="nome-servico" placeholder="Ex: Vacinação Boer, Reparo de Cerca" required>
         </div>
 
-        <div class="form-group">
-          <label for="local-servico">Local / Área da Propriedade *</label>
-          <select id="local-servico" required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
-            <option value="">Selecione uma área registrada...</option>
-          </select>
-        </div>
+       <div class="form-group">
+  <label for="local-servico">Local / Área da Propriedade *</label>
+  <input type="text" id="local-servico" list="lista-areas-autocomplete" placeholder="Selecione ou digite um local..." required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
+  <datalist id="lista-areas-autocomplete">
+    <!-- As opções cadastradas serão inseridas aqui via JavaScript -->
+  </datalist>
+</div>
 
         <div class="form-group">
           <label for="responsavel-servico">Responsável</label>
