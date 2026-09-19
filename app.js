@@ -198,7 +198,50 @@ function renderizarServicos(servicos) {
       // O botão Excluir só é renderizado para serviços NÃO concluídos
       acoesHTML += `<button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>`;
     }
+function renderizarServicos() {
+  const container = document.getElementById('lista-servicos'); // Ou a sua div/tabela de serviços
+  const listaServicos = carregarServicos();
+  
+  // Atualiza a visibilidade dos botões globais de Backup e Importar no topo
+  const areaBackup = document.getElementById('btn-backup');
+  const areaImportar = document.getElementById('btn-importar');
+  if (areaBackup) areaBackup.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
+  if (areaImportar) areaImportar.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
 
+  let html = '';
+
+  listaServicos.forEach(s => {
+    // -------------------------------------------------------------
+    // 1. MONTAGEM DOS BOTÕES COM BASE NO PERFIL (INSERIR AQUI)
+    // -------------------------------------------------------------
+    let botoesAcao = '';
+
+    // Ações permitidas para TODOS (Usuário e Admin)
+    botoesAcao += `<button onclick="abrirRelatorioCompleto(${s.id})">📄 Resumo</button>`;
+    botoesAcao += `<button onclick="enviarRelatorioWhatsApp(${s.id})">📲 WhatsApp</button>`;
+
+    // Ações EXCLUSIVAS do Administrador (Excluir, Editar, etc.)
+    if (perfilAtual === 'admin') {
+      botoesAcao += `<button onclick="abrirModalEditarConclusao(${s.id})">📷 Editar</button>`;
+      botoesAcao += `<button onclick="excluirServico(${s.id})" class="btn-delete">Excluir</button>`;
+    }
+
+    // -------------------------------------------------------------
+    // 2. MONTAGEM DO CARD OU DA LINHA DA TABELA
+    // -------------------------------------------------------------
+    html += `
+      <div class="card-servico">
+        <h3>${s.nome || 'Serviço'}</h3>
+        <p>Status: ${s.status}</p>
+        <div class="acoes">
+          ${botoesAcao} <!-- Os botões filtrados entram aqui -->
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
     acoesHTML += '</div>';
 
     return `
