@@ -172,12 +172,14 @@ function renderizarServicos(servicos) {
     let acoesHTML = '<div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">';
 
     if (isConcluido) {
+      // Quando concluído: Apenas botões de gestão da conclusão (SEM o botão de Excluir)
       acoesHTML += `
         <button onclick="abrirRelatorioCompleto(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #2980b9; color: white; border: none; border-radius: 6px; cursor: pointer;">📄 Resumo</button>
         <button onclick="enviarRelatorioWhatsApp(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #25d366; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📲 WhatsApp</button>
         <button onclick="abrirModalEditarConclusao(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #f39c12; color: white; border: none; border-radius: 6px; cursor: pointer;">📷 Editar Fotos / Obs</button>
       `;
     } else {
+      // Quando pendente / em execução: Botões de ação normal + Botão Excluir
       if (statusAtual === 'pendente' || statusAtual === 'agendado') {
         acoesHTML += `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; background: #2e5a3c; color: white; border: none; border-radius: 6px; cursor: pointer;">${rotuloIniciar}</button>`;
       }
@@ -185,9 +187,11 @@ function renderizarServicos(servicos) {
         acoesHTML += `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer;">⏸️ Pausar</button>`;
       }
       acoesHTML += `<button onclick="solicitarConclusaoServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>`;
+      
+      // O botão Excluir só é renderizado para serviços NÃO concluídos
+      acoesHTML += `<button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>`;
     }
 
-    acoesHTML += `<button onclick="excluirServico(${s.id})" class="btn-delete" style="padding: 6px 12px; font-size: 0.8rem; background: #ff4d4d; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: auto;">Excluir</button>`;
     acoesHTML += '</div>';
 
     return `
@@ -215,6 +219,23 @@ function renderizarServicos(servicos) {
           </div>
         </div>
       ` : ''}
+
+      ${s.conclusaoInfo ? `
+        <div style="font-size: 0.8rem; margin-top: 8px; color: #1e7e34; background: #eafaf1; padding: 8px; border-radius: 6px; border-left: 3px solid #27ae60;">
+          <strong>✅ Relatório de Conclusão:</strong>
+          <div>${s.conclusaoInfo}</div>${s.fotos && s.fotos.length > 0 ? `
+            <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
+              ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60; cursor: pointer;">`).join('')}
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+
+      ${acoesHTML}
+    </div>
+  `;
+  }).join('');
+}
 
       ${s.conclusaoInfo ? `
         <div style="font-size: 0.8rem; margin-top: 8px; color: #1e7e34; background: #eafaf1; padding: 8px; border-radius: 6px; border-left: 3px solid #27ae60;">
