@@ -103,32 +103,46 @@
       </div>
     </div>
   </header>
-<!-- CABEÇALHO SUPERIOR DA PROPRIEDADE -->
-<header style="background: #1b3b22; color: white; padding: 16px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
-  <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+<!-- CABEÇALHO UNIFICADO DA PROPRIEDADE -->
+<header style="background: #1b3b22; color: white; padding: 16px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto;">
     
-    <!-- DADOS DA PROPRIEDADE -->
+    <!-- 1. IDENTIDADE DA FAZENDA -->
     <div style="display: flex; align-items: center; gap: 12px;">
-      <div id="header-logo" style="width: 48px; height: 48px; border-radius: 50%; background: #27ae60; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden;">CM</div>
+      <div id="header-logo" style="width: 52px; height: 52px; border-radius: 50%; background: #27ae60; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; border: 2px solid #a3e635;">CM</div>
       <div>
-        <h2 id="header-nome-fazenda" style="margin: 0; font-size: 1.1rem; letter-spacing: 0.5px;">CRIATÓRIO MARQUES</h2>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h2 id="header-nome-fazenda" style="margin: 0; font-size: 1.15rem; letter-spacing: 0.5px; font-weight: bold;">CRIATÓRIO MARQUES</h2>
+          <button type="button" onclick="abrirModalPerfilFazenda()" style="padding: 2px 8px; font-size: 0.7rem; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; cursor: pointer;">⚙️ Editar</button>
+        </div>
         <p id="header-slogan" style="margin: 2px 0 0 0; font-size: 0.75rem; color: #a3e635; font-style: italic;">"Excelência em Genética e Manejo no Sertão"</p>
         <span id="header-cidade" style="font-size: 0.75rem; color: #cbd5e1;">📍 Belém do São Francisco - PE</span>
       </div>
     </div>
 
-    <!-- BOTOES DE AÇÃO NO TOPO DA TELA -->
-    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+    <!-- 2. AÇÕES DE NAVEGAÇÃO & CONECTIVIDADE -->
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
       
-      <!-- 📍 NOVO BOTÃO DE ÁREAS NO TOPO SUPERIOR -->
-      <button type="button" onclick="abrirModalAreas()" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+      <!-- INDICADOR DE CONECTIVIDADE -->
+      <div id="status-conexao" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; background: #eafaf1; color: #1e7e34;">
+        <span id="dot-conexao" style="width: 8px; height: 8px; border-radius: 50%; background: #27ae60;"></span>
+        <span id="texto-conexao">Online</span>
+      </div>
+
+      <!-- 📍 BOTÃO DE ÁREAS DA PROPRIEDADE -->
+      <button type="button" onclick="abrirModalAreas()" style="padding: 6px 14px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
         📍 Áreas da Propriedade
       </button>
 
-      <!-- BOTÃO DE EDITAR PERFIL DA FAZENDA -->
-      <button type="button" onclick="abrirModalPerfilFazenda()" style="padding: 6px 10px; font-size: 0.75rem; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; cursor: pointer;">
-        ⚙️ Editar
-      </button>
+      <!-- CLIMA EM TEMPO REAL -->
+      <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15);">
+        <span id="weather-icon" style="font-size: 1.2rem;">☀️</span>
+        <div>
+          <div id="weather-temp" style="font-weight: bold; font-size: 0.85rem; line-height: 1;">--°C</div>
+          <div id="weather-desc" style="font-size: 0.65rem; color: #cbd5e1;">Carregando...</div>
+        </div>
+      </div>
+
     </div>
 
   </div>
