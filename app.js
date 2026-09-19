@@ -237,9 +237,6 @@ function renderizarServicos(servicos) {
   }).join('');
 }
 
-/* ==========================================================================
-   AÇÕES DE EXECUÇÃO E PAUSA
-   ========================================================================== */
 function iniciarServico(id) {
   let servicos = carregarServicos();
   const item = servicos.find(s => s.id === id);
