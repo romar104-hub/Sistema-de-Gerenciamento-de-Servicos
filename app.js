@@ -721,11 +721,11 @@ function renderizarListaAreas() {
 }
 
 function atualizarSelectAreasServico() {
-  const selectLocal = document.getElementById('local-servico');
-  if (!selectLocal || selectLocal.tagName !== 'SELECT') return;
+  const datalist = document.getElementById('lista-areas-autocomplete');
+  if (!datalist) return;
 
   const areas = carregarAreas();
-  selectLocal.innerHTML = areas.map(a => `<option value="${a.nome}">${a.nome}</option>`).join('');
+  datalist.innerHTML = areas.map(a => `<option value="${a.nome}">`).join('');
 }
 // OUVINTES DE EVENTO DE REDE
 window.addEventListener('online', atualizarStatusConexao);
