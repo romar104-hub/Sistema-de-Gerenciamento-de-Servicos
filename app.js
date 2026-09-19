@@ -608,3 +608,32 @@ async function buscarClimaBelem() {
     document.getElementById('weather-icon').innerText = "☀️";
   }
 }
+// ATUALIZAR INDICADOR DE CONECTIVIDADE
+function atualizarStatusConexao() {
+  const badge = document.getElementById('status-conexao');
+  const dot = document.getElementById('dot-conexao');
+  const texto = document.getElementById('texto-conexao');
+
+  if (!badge || !dot || !texto) return;
+
+  if (navigator.onLine) {
+    dot.style.background = '#27ae60';
+    texto.innerText = 'Online';
+    badge.style.background = '#eafaf1';
+    badge.style.color = '#1e7e34';
+  } else {
+    dot.style.background = '#e74c3c';
+    texto.innerText = 'Offline (Modo Campo)';
+    badge.style.background = '#fadbd8';
+    badge.style.color = '#78281f';
+  }
+}
+
+// OUVINTES DE EVENTO DE REDE
+window.addEventListener('online', atualizarStatusConexao);
+window.addEventListener('offline', atualizarStatusConexao);
+
+// Chamar a função na inicialização
+document.addEventListener('DOMContentLoaded', () => {
+  atualizarStatusConexao();
+});
