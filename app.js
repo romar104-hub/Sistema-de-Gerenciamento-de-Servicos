@@ -654,7 +654,11 @@ function abrirModalAreas() {
   renderizarListaAreas();
   document.getElementById('modal-areas').style.display = 'flex';
 }
-
+// Garantir que ao abrir o modal de novo serviço, o select de áreas está atualizado
+function abrirModal() {
+  atualizarSelectAreasServico();
+  document.getElementById('modal-servico').style.display = 'flex';
+}
 function fecharModalAreas() {
   fotoTempAreaBase64 = '';
   document.getElementById('nome-area').value = '';
