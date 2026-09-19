@@ -172,7 +172,7 @@ function renderizarServicos(servicos) {
     let acoesHTML = '<div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">';
 
     if (isConcluido) {
-      // Quando concluído: Apenas botões de gestão da conclusão (SEM o botão de Excluir)
+      // Quando concluído: Apenas botões de gestão da conclusão
       acoesHTML += `
         <button onclick="abrirRelatorioCompleto(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #2980b9; color: white; border: none; border-radius: 6px; cursor: pointer;">📄 Resumo</button>
         <button onclick="enviarRelatorioWhatsApp(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #25d366; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📲 WhatsApp</button>
@@ -219,23 +219,6 @@ function renderizarServicos(servicos) {
           </div>
         </div>
       ` : ''}
-
-      ${s.conclusaoInfo ? `
-        <div style="font-size: 0.8rem; margin-top: 8px; color: #1e7e34; background: #eafaf1; padding: 8px; border-radius: 6px; border-left: 3px solid #27ae60;">
-          <strong>✅ Relatório de Conclusão:</strong>
-          <div>${s.conclusaoInfo}</div>${s.fotos && s.fotos.length > 0 ? `
-            <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
-              ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60; cursor: pointer;">`).join('')}
-            </div>
-          ` : ''}
-        </div>
-      ` : ''}
-
-      ${acoesHTML}
-    </div>
-  `;
-  }).join('');
-}
 
       ${s.conclusaoInfo ? `
         <div style="font-size: 0.8rem; margin-top: 8px; color: #1e7e34; background: #eafaf1; padding: 8px; border-radius: 6px; border-left: 3px solid #27ae60;">
@@ -596,14 +579,22 @@ function atualizarDashboard() {
    PERFIL DA FAZENDA E CLIMA
    ========================================================================== */
 function carregarDadosFazendaNaTela() {
-  document.getElementById('header-nome-fazenda').innerText = dadosFazenda.nome.toUpperCase();
-  document.getElementById('header-slogan').innerText = `"${dadosFazenda.slogan}"`;
-  document.getElementById('header-cidade').innerText = `📍 ${dadosFazenda.cidade}`;
+  if (document.getElementById('header-nome-fazenda')) {
+    document.getElementById('header-nome-fazenda').innerText = dadosFazenda.nome.toUpperCase();
+  }
+  if (document.getElementById('header-slogan')) {
+    document.getElementById('header-slogan').innerText = `"${dadosFazenda.slogan}"`;
+  }
+  if (document.getElementById('header-cidade')) {
+    document.getElementById('header-cidade').innerText = `📍 ${dadosFazenda.cidade}`;
+  }
   const logoContainer = document.getElementById('header-logo');
-  if (dadosFazenda.logoBase64) {
-    logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo">`;
-  } else {
-    logoContainer.innerText = dadosFazenda.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'CM';
+  if (logoContainer) {
+    if (dadosFazenda.logoBase64) {
+      logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo">`;
+    } else {
+      logoContainer.innerText = dadosFazenda.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'CM';
+    }
   }
 }
 
@@ -658,20 +649,20 @@ async function buscarClimaBelem() {
     if (data && data.current_weather) {
       const temp = Math.round(data.current_weather.temperature);
       const code = data.current_weather.weathercode;
-      document.getElementById('weather-temp').innerText = `${temp}°C`;
+      if (document.getElementById('weather-temp')) document.getElementById('weather-temp').innerText = `${temp}°C`;
       let desc = "Ensolarado", icon = "☀️";
       if (code === 0) { desc = "Céu Limpo"; icon = "☀️"; }
       else if (code >= 1 && code <= 3) { desc = "Parcialmente Nublado"; icon = "⛅"; }
       else if (code >= 45 && code <= 48) { desc = "Nevoeiro"; icon = "🌫️"; }
       else if (code >= 51 && code <= 67) { desc = "Chuva Leve"; icon = "🌧️"; }
       else if (code >= 80 && code <= 99) { desc = "Pancadas / Chuva"; icon = "⛈️"; }
-      document.getElementById('weather-desc').innerText = desc;
-      document.getElementById('weather-icon').innerText = icon;
+      if (document.getElementById('weather-desc')) document.getElementById('weather-desc').innerText = desc;
+      if (document.getElementById('weather-icon')) document.getElementById('weather-icon').innerText = icon;
     }
   } catch (error) {
-    document.getElementById('weather-temp').innerText = "32°C";
-    document.getElementById('weather-desc').innerText = "Ensolarado";
-    document.getElementById('weather-icon').innerText = "☀️";
+    if (document.getElementById('weather-temp')) document.getElementById('weather-temp').innerText = "32°C";
+    if (document.getElementById('weather-desc')) document.getElementById('weather-desc').innerText = "Ensolarado";
+    if (document.getElementById('weather-icon')) document.getElementById('weather-icon').innerText = "☀️";
   }
 }
 
@@ -717,6 +708,15 @@ function salvarAreas(areas) {
   atualizarSelectAreasServico();
 }
 
+function atualizarSelectAreasServico() {
+  const select = document.getElementById('local-servico');
+  if (!select) return;
+
+  const areas = carregarAreas();
+  select.innerHTML = '<option value="">Selecione o local / área</option>' + 
+    areas.map(a => `<option value="${a.nome}">${a.nome}</option>`).join('');
+}
+
 function abrirModalAreas() {
   renderizarListaAreas();
   document.getElementById('modal-areas').style.display = 'flex';
@@ -724,8 +724,8 @@ function abrirModalAreas() {
 
 function fecharModalAreas() {
   fotoTempAreaBase64 = '';
-  document.getElementById('nome-area').value = '';
-  document.getElementById('preview-foto-area').innerHTML = '';
+  if (document.getElementById('nome-area')) document.getElementById('nome-area').value = '';
+  if (document.getElementById('preview-foto-area')) document.getElementById('preview-foto-area').innerHTML = '';
   document.getElementById('modal-areas').style.display = 'none';
 }
 
@@ -774,19 +774,11 @@ function renderizarListaAreas() {
 
   container.innerHTML = areas.map(a => `
     <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 6px;">
-      <div style="display: flex; align-items: center; gap: 10px;">
-        ${a.foto ? `<img src="${a.foto}" onclick="ampliarImagem('${a.foto}')" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; cursor: pointer;">` : '<span style="font-size: 1.2rem;">📍</span>'}
-        <strong style="font-size: 0.9rem; color: #1b3b22;">${a.nome}</strong>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        ${a.foto ? `<img src="${a.foto}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px;">` : '📍'}
+        <span style="font-size: 0.9rem; font-weight: 500;">${a.nome}</span>
       </div>
-      <button onclick="excluirArea(${a.id})" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">Excluir</button>
+      <button onclick="excluirArea(${a.id})" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; font-size: 0.9rem;">✕</button>
     </div>
   `).join('');
-}
-
-function atualizarSelectAreasServico() {
-  const datalist = document.getElementById('lista-areas-autocomplete');
-  if (!datalist) return;
-
-  const areas = carregarAreas();
-  datalist.innerHTML = areas.map(a => `<option value="${a.nome}">`).join('');
 }
