@@ -167,7 +167,25 @@ function renderizarServicos(servicos) {
     container.innerHTML = '<p class="empty-msg" style="text-align: center; color: #7f8c8d; margin-top: 20px;">Nenhum serviço encontrado.</p>';
     return;
   }
-
+function alternarModoAcesso() {
+  if (perfilAtual === 'usuario') {
+    const senha = prompt("Digite a senha de Administrador:");
+    if (senha === "1234") { // Troque '1234' pela senha desejada
+      perfilAtual = 'admin';
+      localStorage.setItem('perfil_usuario', 'admin');
+      alert("Modo Administrador ativado!");
+    } else if (senha !== null) {
+      alert("Senha incorreta!");
+    }
+  } else {
+    perfilAtual = 'usuario';
+    localStorage.setItem('perfil_usuario', 'usuario');
+    alert("Alternado para Modo Usuário.");
+  }
+  
+  // Recarrega a tela com os novos bloqueios/permissões aplicados
+  renderizarServicos();
+}
   container.innerHTML = servicos.map(s => {
     const historico = s.historicoExecucao || [];
     const jaIniciouAlgo = historico.length > 0;
