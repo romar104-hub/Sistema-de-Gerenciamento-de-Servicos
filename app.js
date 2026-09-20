@@ -8,6 +8,7 @@ const STORAGE_KEY_AREAS = 'criatorio_marques_areas';
 let servicoPendentePausaId = null;
 let servicoConclusaoId = null;
 let servicoEdicaoConclusaoId = null;
+let servicoReagendarId = null;
 let imagensTempConclusao = [];
 let fotoTempAreaBase64 = '';
 let filtroStatusAtual = null;
@@ -211,7 +212,6 @@ function renderizarServicos(servicos) {
   const container = document.getElementById('lista-servicos');
   if (!container) return;
 
-  // Oculta/Exibe botões administrativos
   const areaBackup = document.getElementById('btn-backup');
   const areaImportar = document.getElementById('btn-importar');
   if (areaBackup) areaBackup.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
@@ -232,7 +232,6 @@ function renderizarServicos(servicos) {
     const statusAtual = (s.status || '').toString().toLowerCase().trim();
     const isConcluido = statusAtual === 'concluído' || statusAtual === 'concluido';
 
-    // A LÓGICA DO ATRASO FICA AQUI (FORA DO HTML):
     const emAtraso = (statusAtual === 'agendado') && verificarAtrasoAgendamento(s.agendamento);
 
     let acoesHTML = '<div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">';
@@ -315,7 +314,7 @@ function renderizarServicos(servicos) {
 }
 
 /* ==========================================================================
-   AÇÕES DOS SERVIÇOS (INICIAR, PAUSAR, CONCLUIR)
+   AÇÕES DOS SERVIÇOS (INICIAR, PAUSAR, REAGENDAR)
    ========================================================================== */
 function iniciarServico(id) {
   let servicos = carregarServicos();
@@ -366,13 +365,10 @@ function confirmarPausaServico() {
   }
   fecharModalJustificativa();
 }
-let servicoReagendarId = null;
 
-// Helper para verificar se um agendamento está em atraso
 function verificarAtrasoAgendamento(stringAgendamento) {
   if (!stringAgendamento) return false;
 
-  // Extrai data do formato "DD/MM/AAAA às HH:MM" ou "DD/MM/AAAA"
   const partes = stringAgendamento.split(' às ');
   const dataPartes = partes[0].split('/');
   if (dataPartes.length !== 3) return false;
@@ -396,7 +392,6 @@ function verificarAtrasoAgendamento(stringAgendamento) {
   return agora > dataAgendada;
 }
 
-// Abrir e fechar modal de reagendamento
 function solicitarReagendamento(id) {
   servicoReagendarId = id;
   document.getElementById('justificativa-atraso').value = '';
@@ -410,7 +405,6 @@ function fecharModalReagendar() {
   document.getElementById('modal-reagendar').style.display = 'none';
 }
 
-// Salvar o novo agendamento com a justificativa
 function confirmarReagendamento(event) {
   event.preventDefault();
   const justificativa = document.getElementById('justificativa-atraso').value.trim();
@@ -445,6 +439,7 @@ function confirmarReagendamento(event) {
 
   fecharModalReagendar();
 }
+
 /* ==========================================================================
    PROCESSAMENTO DE IMAGENS E CONCLUSÃO
    ========================================================================== */
@@ -770,69 +765,60 @@ function fecharModalPerfilFazenda() { document.getElementById('modal-perfil-faze
 function carregarPreviewLogo(event) {
   const file = event.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    logoTempBase64 = e.target.result;
-    document.getElementById('preview-logo-box').innerHTML = `<img src="${logoTempBase64}">`;
-  };
-  reader.readAsDataURL(file);
+  comprimirImagem(file, 300, 300, 0.8, function(base64Otimizado) {
+    logoTempBase64 = base64Otimizado;
+    const box = document.getElementById('preview-logo-box');
+    if (box) box.innerHTML = `<img src="${logoTempBase64}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
+  });
 }
 
 function salvarPerfilFazenda(event) {
   event.preventDefault();
-  dadosFazenda = {
-    nome: document.getElementById('input-nome-fazenda').value.trim(),
-    slogan: document.getElementById('input-slogan-fazenda').value.trim(),
-    cidade: document.getElementById('input-cidade-fazenda').value.trim(),
-    logoBase64: logoTempBase64
-  };
+  dadosFazenda.nome = document.getElementById('input-nome-fazenda').value.trim() || 'CRIATÓRIO MARQUES';
+  dadosFazenda.slogan = document.getElementById('input-slogan-fazenda').value.trim();
+  dadosFazenda.cidade = document.getElementById('input-cidade-fazenda').value.trim() || 'Belém do São Francisco - PE';
+  dadosFazenda.logoBase64 = logoTempBase64;
+
   localStorage.setItem('dadosFazenda', JSON.stringify(dadosFazenda));
   carregarDadosFazendaNaTela();
   fecharModalPerfilFazenda();
-  buscarClimaBelem();
 }
 
-async function buscarClimaBelem() {
-  try {
-    const cidadeQuery = encodeURIComponent(dadosFazenda.cidade || 'Belém do São Francisco');
-    const geoResp = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${cidadeQuery}&count=1&language=pt`);
-    const geoData = await geoResp.json();
-    let lat = -8.7531, lon = -38.9667;
-    if (geoData && geoData.results && geoData.results[0]) {
-      lat = geoData.results[0].latitude; 
-      lon = geoData.results[0].longitude;
-    }
-    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
-    const data = await response.json();
-    if (data && data.current_weather) {
-      const temp = Math.round(data.current_weather.temperature);
-      const code = data.current_weather.weathercode;
-      if (document.getElementById('weather-temp')) document.getElementById('weather-temp').innerText = `${temp}°C`;
-      let desc = "Ensolarado", icon = "☀️";
-      if (code === 0) { desc = "Céu Limpo"; icon = "☀️"; }
-      else if (code >= 1 && code <= 3) { desc = "Parcialmente Nublado"; icon = "⛅"; }
-      else if (code >= 45 && code <= 48) { desc = "Nevoeiro"; icon = "🌫️"; }
-      else if (code >= 51 && code <= 67) { desc = "Chuva Leve"; icon = "🌧️"; }
-      else if (code >= 80 && code <= 99) { desc = "Pancadas / Chuva"; icon = "⛈️"; }
-      if (document.getElementById('weather-desc')) document.getElementById('weather-desc').innerText = desc;
-      if (document.getElementById('weather-icon')) document.getElementById('weather-icon').innerText = icon;
-    }
-  } catch (error) {
-    if (document.getElementById('weather-temp')) document.getElementById('weather-temp').innerText = "32°C";
-    if (document.getElementById('weather-desc')) document.getElementById('weather-desc').innerText = "Ensolarado";
-    if (document.getElementById('weather-icon')) document.getElementById('weather-icon').innerText = "☀️";
-  }
+/* ==========================================================================
+   SERVIÇO DE CLIMA (BELÉM DO SÃO FRANCISCO - PE)
+   ========================================================================== */
+function buscarClimaBelem() {
+  const container = document.getElementById('info-clima');
+  if (!container) return;
+
+  // Coordenadas aproximadas de Belém do São Francisco - PE (-8.7533, -38.9697)
+  const lat = -8.7533;
+  const lon = -38.9697;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.current_weather) {
+        const temp = Math.round(data.current_weather.temperature);
+        const vento = Math.round(data.current_weather.windspeed);
+        container.innerHTML = `🌡️ <strong>${temp}°C</strong> | 💨 ${vento} km/h`;
+      } else {
+        container.innerText = 'Clima indisponível';
+      }
+    })
+    .catch(() => {
+      container.innerText = 'Clima offline';
+    });
 }
 
 function atualizarStatusConexao() {
-  const badge = document.getElementById('status-conexao');
-  if (badge) {
+  const statusEl = document.getElementById('status-conexao');
+  if (statusEl) {
     if (navigator.onLine) {
-      badge.innerText = 'Online';
-      badge.style.background = '#27ae60';
+      statusEl.innerHTML = '<span style="color: #27ae60;">🟢 Online</span>';
     } else {
-      badge.innerText = 'Offline';
-      badge.style.background = '#e74c3c';
+      statusEl.innerHTML = '<span style="color: #e74c3c;">🔴 Offline</span>';
     }
   }
 }
