@@ -355,7 +355,85 @@ function confirmarPausaServico() {
   }
   fecharModalJustificativa();
 }
+let servicoReagendarId = null;
 
+// Helper para verificar se um agendamento está em atraso
+function verificarAtrasoAgendamento(stringAgendamento) {
+  if (!stringAgendamento) return false;
+
+  // Extrai data do formato "DD/MM/AAAA às HH:MM" ou "DD/MM/AAAA"
+  const partes = stringAgendamento.split(' às ');
+  const dataPartes = partes[0].split('/');
+  if (dataPartes.length !== 3) return false;
+
+  const dia = parseInt(dataPartes[0], 10);
+  const mes = parseInt(dataPartes[1], 10) - 1;
+  const ano = parseInt(dataPartes[2], 10);
+
+  let hora = 23, minuto = 59;
+  if (partes[1]) {
+    const horaPartes = partes[1].split(':');
+    if (horaPartes.length === 2) {
+      hora = parseInt(horaPartes[0], 10);
+      minuto = parseInt(horaPartes[1], 10);
+    }
+  }
+
+  const dataAgendada = new Date(ano, mes, dia, hora, minuto);
+  const agora = new Date();
+
+  return agora > dataAgendada;
+}
+
+// Abrir e fechar modal de reagendamento
+function solicitarReagendamento(id) {
+  servicoReagendarId = id;
+  document.getElementById('justificativa-atraso').value = '';
+  document.getElementById('nova-data-agendada').value = '';
+  document.getElementById('novo-horario-agendado').value = '';
+  document.getElementById('modal-reagendar').style.display = 'flex';
+}
+
+function fecharModalReagendar() {
+  servicoReagendarId = null;
+  document.getElementById('modal-reagendar').style.display = 'none';
+}
+
+// Salvar o novo agendamento com a justificativa
+function confirmarReagendamento(event) {
+  event.preventDefault();
+  const justificativa = document.getElementById('justificativa-atraso').value.trim();
+  const novaData = document.getElementById('nova-data-agendada').value;
+  const novoHorario = document.getElementById('novo-horario-agendado').value;
+
+  if (!justificativa || !novaData) {
+    return alert('Preencha a justificativa e a nova data.');
+  }
+
+  const partesData = novaData.split('-');
+  const dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
+  const novoAgendamentoTexto = `${dataFormatada}${novoHorario ? ' às ' + novoHorario : ''}`;
+
+  let servicos = carregarServicos();
+  const item = servicos.find(s => s.id === servicoReagendarId);
+
+  if (item) {
+    item.status = 'Agendado';
+    item.agendamento = novoAgendamentoTexto;
+
+    if (!item.historicoExecucao) item.historicoExecucao = [];
+    item.historicoExecucao.push({
+      acao: 'Reagendado por Atraso',
+      icone: '📅⚠️',
+      dataHora: obterDataHoraAtual(),
+      detalhes: `Nova data: ${novoAgendamentoTexto} | Motivo: ${justificativa}`
+    });
+
+    salvarServicos(servicos);
+  }
+
+  fecharModalReagendar();
+}
 /* ==========================================================================
    PROCESSAMENTO DE IMAGENS E CONCLUSÃO
    ========================================================================== */
