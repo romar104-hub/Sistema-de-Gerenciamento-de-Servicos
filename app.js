@@ -269,9 +269,19 @@ function renderizarServicos(servicos) {
       <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data}</p>
       <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0;">Prioridade: <strong>${s.prioridade}</strong></p>
 
-      ${s.agendamento ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #2980b9; background: #ebf5fb; padding: 6px; border-radius: 6px;">📅 <strong>Agendado para:</strong> ${s.agendamento}</p>` : ''}
-      ${s.observacoes ? `<p style="font-size: 0.85rem; margin-top: 6px; color: #444; background: #f9f9f9; padding: 6px; border-radius: 6px;">📝 <strong>Obs:</strong> ${s.observacoes}</p>` : ''}
+    // Dentro do map em renderizarServicos:
+const emAtraso = (statusAtual === 'agendado') && verificarAtrasoAgendamento(s.agendamento);
 
+// Substitua a exibição do bloco de agendamento por esta lógica:
+${s.agendamento ? `
+  <div style="font-size: 0.85rem; margin-top: 6px; padding: 8px; border-radius: 6px; background: ${emAtraso ? '#fde8e8' : '#ebf5fb'}; border-left: 4px solid ${emAtraso ? '#e74c3c' : '#2980b9'}; color: ${emAtraso ? '#c0392b' : '#2980b9'}; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+    <div>
+      📅 <strong>Agendado para:</strong> ${s.agendamento}
+      ${emAtraso ? '<br><strong style="color: #e74c3c;">⚠️ SERVIÇO EM ATRASO!</strong>' : ''}
+    </div>
+    ${emAtraso ? `<button onclick="solicitarReagendamento(${s.id})" style="padding: 4px 8px; font-size: 0.75rem; background: #e67e22; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⏰ Reagendar</button>` : ''}
+  </div>
+` : ''}
       ${historico.length > 0 ? `
         <div style="font-size: 0.8rem; margin-top: 8px; color: #2c3e50; background: #f1f5f9; padding: 8px; border-radius: 6px; border-left: 3px solid #2e5a3c;">
           <strong>⏱️ Registros de Execução:</strong>
