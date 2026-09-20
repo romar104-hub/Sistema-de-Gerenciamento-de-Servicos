@@ -50,12 +50,18 @@ document.addEventListener('DOMContentLoaded', () => {
   atualizarAutocompleteAreas();
   buscarClimaBelem();
 
+  // Escutador para busca em tempo real
+  const inputBusca = document.getElementById('search-input');
+  if (inputBusca) {
+    inputBusca.addEventListener('input', filtrarServicos);
+  }
+
   // Atualização automática de clima a cada 15 min
   setInterval(buscarClimaBelem, 15 * 60 * 1000);
 });
 
 /* ==========================================================================
-   SERVIÇO DE CLIMA EM TEMPO REAL (wttr.in - Compacto e Sem Quebra de Layout)
+   SERVIÇO DE CLIMA EM TEMPO REAL
    ========================================================================== */
 function buscarClimaBelem() {
   const tempEl = document.getElementById('weather-temp');
@@ -109,7 +115,7 @@ function buscarClimaBelem() {
    PERSISTÊNCIA E MIGRAÇÃO AUTOMÁTICA DE DADOS
    ========================================================================== */
 function carregarDadosLocais() {
-  // 1. Serviços (tenta a chave atual; se vazia, recupera da chave antiga)
+  // 1. Serviços (agro_servicos ou criatorio_marques_servicos)
   const s = localStorage.getItem('agro_servicos');
   if (s && JSON.parse(s).length > 0) {
     servicos = JSON.parse(s);
@@ -125,7 +131,7 @@ function carregarDadosLocais() {
   const a = localStorage.getItem('agro_areas');
   if (a) areasPropriedade = JSON.parse(a);
 
-  // 3. Perfil da Fazenda (tenta agro_perfil e dadosFazenda)
+  // 3. Perfil da Fazenda
   const p = localStorage.getItem('agro_perfil') || localStorage.getItem('dadosFazenda');
   if (p) {
     perfilFazenda = JSON.parse(p);
@@ -260,6 +266,10 @@ function renderizarServicos() {
             <button onclick="abrirModalConclusao(${s.id})" style="padding: 4px 10px; font-size: 0.75rem; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">✅ Concluir</button>
           ` : ''}
           <button onclick="abrirModalRelatorio(${s.id})" style="padding: 4px 10px; font-size: 0.75rem; background: #7f8c8d; color: white; border: none; border-radius: 4px; cursor: pointer;">📄 Ver Detalhes</button>
+          
+          ${isAdmin ? `
+            <button onclick="excluirServico(${s.id})" style="padding: 4px 10px; font-size: 0.75rem; background: #c0392b; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Excluir</button>
+          ` : ''}
         </div>
       </div>
     `;
@@ -271,6 +281,15 @@ function alterarStatus(id, novoStatus) {
   if (servico) {
     servico.status = novoStatus;
     servico.historico.push({ data: new Date().toLocaleString('pt-BR'), acao: `Status alterado para ${novoStatus}` });
+    salvarDadosLocais();
+    renderizarServicos();
+    atualizarContadores();
+  }
+}
+
+function excluirServico(id) {
+  if (confirm("Tem certeza que deseja excluir este serviço?")) {
+    servicos = servicos.filter(s => s.id !== id);
     salvarDadosLocais();
     renderizarServicos();
     atualizarContadores();
@@ -355,11 +374,14 @@ function confirmarReagendamento(event) {
    MODAIS E UTILITÁRIOS
    ========================================================================== */
 function abrirModal() {
-  document.getElementById('form-servico').reset();
-  document.getElementById('modal-servico').style.display = 'flex';
+  const form = document.getElementById('form-servico');
+  if (form) form.reset();
+  const modal = document.getElementById('modal-servico');
+  if (modal) modal.style.display = 'flex';
 }
 function fecharModal() {
-  document.getElementById('modal-servico').style.display = 'none';
+  const modal = document.getElementById('modal-servico');
+  if (modal) modal.style.display = 'none';
 }
 
 function abrirModalPerfilFazenda() {
@@ -434,9 +456,17 @@ function renderizarListaAreas() {
     container.innerHTML = areasPropriedade.map(a => `
       <div style="display: flex; justify-content: space-between; padding: 6px; background: white; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 4px;">
         <span>📍 ${a.nome}</span>
+        <button onclick="excluirArea(${a.id})" style="background:none; border:none; color:red; cursor:pointer;">❌</button>
       </div>
     `).join('');
   }
+}
+
+function excluirArea(id) {
+  areasPropriedade = areasPropriedade.filter(a => a.id !== id);
+  salvarDadosLocais();
+  atualizarAutocompleteAreas();
+  renderizarListaAreas();
 }
 
 function atualizarAutocompleteAreas() {
@@ -528,6 +558,14 @@ function abrirModalRelatorio(id) {
       <p><strong>Responsável:</strong> ${s.responsavel || 'N/A'}</p>
       <p><strong>Observações:</strong> ${s.obs || 'Nenhuma'}</p>
       ${s.relatorioConclusao ? `<p><strong>Relatório de Conclusão:</strong> ${s.relatorioConclusao}</p>` : ''}
+      
+      ${s.fotosConclusao && s.fotosConclusao.length > 0 ? `
+        <h5>Fotos da Conclusão:</h5>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          ${s.fotosConclusao.map(img => `<img src="${img}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="abrirZoomImagem('${img}')">`).join('')}
+        </div>
+      ` : ''}
+
       <h5>Histórico:</h5>
       <ul>
         ${s.historico ? s.historico.map(h => `<li><small>${h.data}</small>:${h.acao}</li>`).join('') : ''}
@@ -538,6 +576,15 @@ function abrirModalRelatorio(id) {
 }
 function fecharModalRelatorio() {
   document.getElementById('modal-relatorio').style.display = 'none';
+}
+
+function abrirZoomImagem(src) {
+  const modal = document.getElementById('modal-zoom-imagem');
+  const img = document.getElementById('imagem-zoom');
+  if (modal && img) {
+    img.src = src;
+    modal.style.display = 'flex';
+  }
 }
 
 /* --- BACKUP E ADMIN --- */
@@ -559,7 +606,6 @@ function importarBackup(e) {
       try {
         const parsed = JSON.parse(event.target.result);
 
-        // Aceita a estrutura normal ou estruturas antigas
         if (parsed.servicos) servicos = parsed.servicos;
         else if (parsed.criatorio_marques_servicos) servicos = parsed.criatorio_marques_servicos;
 
@@ -580,12 +626,22 @@ function importarBackup(e) {
 }
 
 function solicitarAcessoAdmin() {
+  if (isAdmin) {
+    isAdmin = false;
+    const label = document.getElementById('label-perfil');
+    if (label) label.innerText = "Modo: Utilizador";
+    alert("Saiu do modo Admin.");
+    renderizarServicos();
+    return;
+  }
+
   const pass = prompt("Digite a senha de Administrador:");
   if (pass === "1234" || pass === "admin") {
     isAdmin = true;
     const label = document.getElementById('label-perfil');
     if (label) label.innerText = "Modo: Admin (Sair)";
     alert("Acesso Admin concedido!");
+    renderizarServicos();
   } else {
     alert("Senha incorreta.");
   }
