@@ -55,42 +55,59 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ==========================================================================
-   SERVIÇO DE CLIMA EM TEMPO REAL
+   SERVIÇO DE CLIMA EM TEMPO REAL (wttr.in - Funciona Localmente e Sem API Key)
    ========================================================================== */
 function buscarClimaBelem() {
   const tempEl = document.getElementById('weather-temp');
   const descEl = document.getElementById('weather-desc');
   const iconEl = document.getElementById('weather-icon');
 
-  const latitude = -8.7533;
-  const longitude = -38.9697;
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
+  // Consulta a API do wttr.in para Belém do São Francisco - PE
+  const url = 'https://wttr.in/Belem_do_Sao_Francisco,Pernambuco?format=j1';
 
   fetch(url)
     .then(response => {
-      if (!response.ok) throw new Error('Falha na requisição');
+      if (!response.ok) throw new Error('Falha ao obter dados do clima');
       return response.json();
     })
     .then(data => {
-      if (data && data.current_weather) {
-        const temp = Math.round(data.current_weather.temperature);
-        const code = data.current_weather.weathercode;
-        const vento = Math.round(data.current_weather.windspeed);
+      if (data && data.current_condition && data.current_condition[0]) {
+        const clima = data.current_condition[0];
+        const temp = clima.temp_C;
+        const vento = clima.windspeedKmph;
 
-        const climaInfo = wmoWeatherCodes[code] || { desc: 'Ensolarado', icon: '☀️' };
+        // Tradução simples de condições do tempo
+        const descEn = clima.weatherDesc[0].value.toLowerCase();
+        let descPt = 'Ensolarado';
+        let icone = '☀️';
 
+        if (descEn.includes('rain') || descEn.includes('shower')) {
+          descPt = 'Chuva / Pancadas';
+          icone = '🌧️';
+        } else if (descEn.includes('cloud') || descEn.includes('overcast')) {
+          descPt = 'Nublado';
+          icone = '☁️';
+        } else if (descEn.includes('clear') || descEn.includes('sunny')) {
+          descPt = 'Céu Limpo';
+          icone = '☀️';
+        } else if (descEn.includes('thunder')) {
+          descPt = 'Trovoada';
+          icone = '⚡';
+        }
+
+        // Atualiza a interface HTML
         if (tempEl) tempEl.innerText = `${temp}°C`;
-        if (descEl) descEl.innerText = `${climaInfo.desc} • 💨 ${vento} km/h`;
-        if (iconEl) iconEl.innerText = climaInfo.icon;
+        if (descEl) descEl.innerText = `${descPt} • 💨 ${vento} km/h`;
+        if (iconEl) iconEl.innerText = icone;
       }
     })
     .catch(err => {
-      console.error("Erro ao buscar clima:", err);
+      console.error("Erro na busca de clima:", err);
+      // Fallback visual em caso de erro de rede
       if (tempEl) tempEl.innerText = '--°C';
-      if (descEl) descEl.innerText = 'Clima indisponível';
+      if (descEl) descEl.innerText = 'Sem conexão';
     });
 }
-
 /* ==========================================================================
    PERSISTÊNCIA DE DADOS
    ========================================================================== */
