@@ -55,14 +55,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ==========================================================================
-   SERVIÇO DE CLIMA EM TEMPO REAL (wttr.in - Funciona Localmente e Sem API Key)
+   SERVIÇO DE CLIMA EM TEMPO REAL (wttr.in - Compacto e Sem Quebra de Layout)
    ========================================================================== */
 function buscarClimaBelem() {
   const tempEl = document.getElementById('weather-temp');
   const descEl = document.getElementById('weather-desc');
   const iconEl = document.getElementById('weather-icon');
 
-  // Consulta a API do wttr.in para Belém do São Francisco - PE
   const url = 'https://wttr.in/Belem_do_Sao_Francisco,Pernambuco?format=j1';
 
   fetch(url)
@@ -76,13 +75,12 @@ function buscarClimaBelem() {
         const temp = clima.temp_C;
         const vento = clima.windspeedKmph;
 
-        // Tradução simples de condições do tempo
         const descEn = clima.weatherDesc[0].value.toLowerCase();
         let descPt = 'Ensolarado';
         let icone = '☀️';
 
         if (descEn.includes('rain') || descEn.includes('shower')) {
-          descPt = 'Chuva / Pancadas';
+          descPt = 'Chuva';
           icone = '🌧️';
         } else if (descEn.includes('cloud') || descEn.includes('overcast')) {
           descPt = 'Nublado';
@@ -95,7 +93,6 @@ function buscarClimaBelem() {
           icone = '⚡';
         }
 
-        // Atualiza a interface HTML
         if (tempEl) tempEl.innerText = `${temp}°C`;
         if (descEl) descEl.innerText = `${descPt} • 💨 ${vento} km/h`;
         if (iconEl) iconEl.innerText = icone;
@@ -103,23 +100,37 @@ function buscarClimaBelem() {
     })
     .catch(err => {
       console.error("Erro na busca de clima:", err);
-      // Fallback visual em caso de erro de rede
       if (tempEl) tempEl.innerText = '--°C';
       if (descEl) descEl.innerText = 'Sem conexão';
     });
 }
+
 /* ==========================================================================
-   PERSISTÊNCIA DE DADOS
+   PERSISTÊNCIA E MIGRAÇÃO AUTOMÁTICA DE DADOS
    ========================================================================== */
 function carregarDadosLocais() {
+  // 1. Serviços (tenta a chave atual; se vazia, recupera da chave antiga)
   const s = localStorage.getItem('agro_servicos');
-  if (s) servicos = JSON.parse(s);
+  if (s && JSON.parse(s).length > 0) {
+    servicos = JSON.parse(s);
+  } else {
+    const sAntigos = localStorage.getItem('criatorio_marques_servicos');
+    if (sAntigos) {
+      servicos = JSON.parse(sAntigos);
+      localStorage.setItem('agro_servicos', JSON.stringify(servicos));
+    }
+  }
 
+  // 2. Áreas da Propriedade
   const a = localStorage.getItem('agro_areas');
   if (a) areasPropriedade = JSON.parse(a);
 
-  const p = localStorage.getItem('agro_perfil');
-  if (p) perfilFazenda = JSON.parse(p);
+  // 3. Perfil da Fazenda (tenta agro_perfil e dadosFazenda)
+  const p = localStorage.getItem('agro_perfil') || localStorage.getItem('dadosFazenda');
+  if (p) {
+    perfilFazenda = JSON.parse(p);
+    localStorage.setItem('agro_perfil', JSON.stringify(perfilFazenda));
+  }
 }
 
 function salvarDadosLocais() {
@@ -192,12 +203,14 @@ function salvarServicoFormulario(event) {
 
 function renderizarServicos() {
   const container = document.getElementById('lista-servicos');
+  if (!container) return;
+
   const busca = document.getElementById('search-input')?.value.toLowerCase() || '';
 
   let filtrados = servicos.filter(s => {
     const combinaStatus = (filtroStatusAtual === 'Todos') || (s.status === filtroStatusAtual);
-    const combinaBusca = s.nome.toLowerCase().includes(busca) ||
-                         s.local.toLowerCase().includes(busca) ||
+    const combinaBusca = (s.nome && s.nome.toLowerCase().includes(busca)) ||
+                         (s.local && s.local.toLowerCase().includes(busca)) ||
                          (s.responsavel && s.responsavel.toLowerCase().includes(busca));
     return combinaStatus && combinaBusca;
   });
@@ -253,6 +266,17 @@ function renderizarServicos() {
   }).join('');
 }
 
+function alterarStatus(id, novoStatus) {
+  const servico = servicos.find(s => s.id === id);
+  if (servico) {
+    servico.status = novoStatus;
+    servico.historico.push({ data: new Date().toLocaleString('pt-BR'), acao: `Status alterado para ${novoStatus}` });
+    salvarDadosLocais();
+    renderizarServicos();
+    atualizarContadores();
+  }
+}
+
 function corPorStatus(status) {
   switch(status) {
     case 'Agendado': return '#2980b9';
@@ -270,10 +294,15 @@ function formatarData(dataIso) {
 }
 
 function atualizarContadores() {
-  document.getElementById('count-agendados').innerText = servicos.filter(s => s.status === 'Agendado').length;
-  document.getElementById('count-pendentes').innerText = servicos.filter(s => s.status === 'Pendente').length;
-  document.getElementById('count-execucao').innerText = servicos.filter(s => s.status === 'Em execução').length;
-  document.getElementById('count-concluidos').innerText = servicos.filter(s => s.status === 'Concluído').length;
+  const elAg = document.getElementById('count-agendados');
+  const elPen = document.getElementById('count-pendentes');
+  const elEx = document.getElementById('count-execucao');
+  const elConc = document.getElementById('count-concluidos');
+
+  if (elAg) elAg.innerText = servicos.filter(s => s.status === 'Agendado').length;
+  if (elPen) elPen.innerText = servicos.filter(s => s.status === 'Pendente').length;
+  if (elEx) elEx.innerText = servicos.filter(s => s.status === 'Em execução').length;
+  if (elConc) elConc.innerText = servicos.filter(s => s.status === 'Concluído').length;
 }
 
 function filtrarPorStatus(status) {
@@ -290,12 +319,14 @@ function filtrarServicos() {
    ========================================================================== */
 function abrirModalReagendar(id) {
   idServicoReagendar = id;
-  document.getElementById('modal-reagendar').style.display = 'flex';
+  const modal = document.getElementById('modal-reagendar');
+  if (modal) modal.style.display = 'flex';
 }
 
 function fecharModalReagendar() {
   idServicoReagendar = null;
-  document.getElementById('modal-reagendar').style.display = 'none';
+  const modal = document.getElementById('modal-reagendar');
+  if (modal) modal.style.display = 'none';
 }
 
 function confirmarReagendamento(event) {
@@ -354,12 +385,17 @@ function salvarPerfilFazenda(e) {
 }
 
 function atualizarInterfacePerfil() {
-  document.getElementById('header-nome-fazenda').innerText = perfilFazenda.nome;
-  document.getElementById('header-slogan').innerText = perfilFazenda.slogan;
-  document.getElementById('header-cidade').innerText = `📍 ${perfilFazenda.cidade}`;
+  const elNome = document.getElementById('header-nome-fazenda');
+  const elSlogan = document.getElementById('header-slogan');
+  const elCidade = document.getElementById('header-cidade');
+  const elLogo = document.getElementById('header-logo');
 
-  if (perfilFazenda.logo) {
-    document.getElementById('header-logo').innerHTML = `<img src="${perfilFazenda.logo}" alt="Logo">`;
+  if (elNome) elNome.innerText = perfilFazenda.nome;
+  if (elSlogan) elSlogan.innerText = perfilFazenda.slogan;
+  if (elCidade) elCidade.innerText = `📍 ${perfilFazenda.cidade}`;
+
+  if (elLogo && perfilFazenda.logo) {
+    elLogo.innerHTML = `<img src="${perfilFazenda.logo}" alt="Logo">`;
   }
 }
 
@@ -394,11 +430,13 @@ function salvarNovaArea(e) {
 
 function renderizarListaAreas() {
   const container = document.getElementById('lista-areas-cadastradas');
-  container.innerHTML = areasPropriedade.map(a => `
-    <div style="display: flex; justify-content: space-between; padding: 6px; background: white; border-radius: 4px; border: 1px solid #ccc;">
-      <span>📍 ${a.nome}</span>
-    </div>
-  `).join('');
+  if (container) {
+    container.innerHTML = areasPropriedade.map(a => `
+      <div style="display: flex; justify-content: space-between; padding: 6px; background: white; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 4px;">
+        <span>📍 ${a.nome}</span>
+      </div>
+    `).join('');
+  }
 }
 
 function atualizarAutocompleteAreas() {
@@ -482,18 +520,20 @@ function abrirModalRelatorio(id) {
   if (!s) return;
 
   const container = document.getElementById('conteudo-relatorio');
-  container.innerHTML = `
-    <h4>${s.nome}</h4>
-    <p><strong>Status:</strong> ${s.status}</p>
-    <p><strong>Local:</strong> ${s.local}</p>
-    <p><strong>Responsável:</strong> ${s.responsavel || 'N/A'}</p>
-    <p><strong>Observações:</strong> ${s.obs || 'Nenhuma'}</p>
-    ${s.relatorioConclusao ? `<p><strong>Relatório de Conclusão:</strong> ${s.relatorioConclusao}</p>` : ''}
-    <h5>Histórico:</h5>
-    <ul>
-      ${s.historico.map(h => `<li><small>${h.data}</small>:${h.acao}</li>`).join('')}
-    </ul>
-  `;
+  if (container) {
+    container.innerHTML = `
+      <h4>${s.nome}</h4>
+      <p><strong>Status:</strong> ${s.status}</p>
+      <p><strong>Local:</strong> ${s.local}</p>
+      <p><strong>Responsável:</strong> ${s.responsavel || 'N/A'}</p>
+      <p><strong>Observações:</strong> ${s.obs || 'Nenhuma'}</p>
+      ${s.relatorioConclusao ? `<p><strong>Relatório de Conclusão:</strong> ${s.relatorioConclusao}</p>` : ''}
+      <h5>Histórico:</h5>
+      <ul>
+        ${s.historico ? s.historico.map(h => `<li><small>${h.data}</small>:${h.acao}</li>`).join('') : ''}
+      </ul>
+    `;
+  }
   document.getElementById('modal-relatorio').style.display = 'flex';
 }
 function fecharModalRelatorio() {
@@ -518,10 +558,18 @@ function importarBackup(e) {
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target.result);
+
+        // Aceita a estrutura normal ou estruturas antigas
         if (parsed.servicos) servicos = parsed.servicos;
+        else if (parsed.criatorio_marques_servicos) servicos = parsed.criatorio_marques_servicos;
+
         if (parsed.areasPropriedade) areasPropriedade = parsed.areasPropriedade;
+
         if (parsed.perfilFazenda) perfilFazenda = parsed.perfilFazenda;
+        else if (parsed.dadosFazenda) perfilFazenda = parsed.dadosFazenda;
+
         salvarDadosLocais();
+        alert('Backup importado com sucesso!');
         location.reload();
       } catch(err) {
         alert('Arquivo de backup inválido.');
@@ -535,7 +583,8 @@ function solicitarAcessoAdmin() {
   const pass = prompt("Digite a senha de Administrador:");
   if (pass === "1234" || pass === "admin") {
     isAdmin = true;
-    document.getElementById('label-perfil').innerText = "Modo: Admin (Sair)";
+    const label = document.getElementById('label-perfil');
+    if (label) label.innerText = "Modo: Admin (Sair)";
     alert("Acesso Admin concedido!");
   } else {
     alert("Senha incorreta.");
@@ -543,5 +592,6 @@ function solicitarAcessoAdmin() {
 }
 
 function fecharZoomImagem() {
-  document.getElementById('modal-zoom-imagem').style.display = 'none';
+  const modal = document.getElementById('modal-zoom-imagem');
+  if (modal) modal.style.display = 'none';
 }
