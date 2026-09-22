@@ -234,8 +234,15 @@ function renderizarServicos(servicos) {
     const statusAtual = (s.status || '').toString().toLowerCase().trim();
     const isConcluido = statusAtual === 'concluído' || statusAtual === 'concluido';
 
-    // A LÓGICA DO ATRASO FICA AQUI (FORA DO HTML):
-    const emAtraso = (statusAtual === 'agendado') && verificarAtrasoAgendamento(s.agendamento);
+    // 1. LÓGICA DE VERIFICAÇÃO DE ATRASO
+    const hojeStr = new Date().toISOString().split('T')[0];
+    const emAtraso = (!isConcluido) && (
+      s.isAtrasado || 
+      ((statusAtual === 'agendado' || statusAtual === 'pendente') && (
+        (typeof verificarAtrasoAgendamento === 'function' && verificarAtrasoAgendamento(s.agendamento || s.dataAgendada)) ||
+        (s.dataAgendada && s.dataAgendada < hojeStr)
+      ))
+    );
 
     let acoesHTML = '<div class="service-actions" style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">';
 
@@ -271,15 +278,24 @@ function renderizarServicos(servicos) {
         <h4 style="margin: 0; color: #1b3b22;">${(s.nome || 'Serviço').toUpperCase()}</h4>
         <span class="badge ${(s.status || '').toLowerCase().replace(' ', '-').replace('ú', 'u')}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${s.status}</span>
       </div>
-      <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data}</p>
-      <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0;">Prioridade: <strong>${s.prioridade}</strong></p>
+      <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data || s.dataCriacao || 'N/A'}</p>
+      <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0;">Prioridade: <strong>${s.prioridade || 'Normal'}</strong></p>
 
-      ${s.agendamento ? `
+      <!-- 2. ALERTA DE ATRASO E BOTÃO DE REAGENDAMENTO COM JUSTIFICATIVA -->
+      ${emAtraso ? `
+        <div style="background: #fff5f5; border: 1px solid #feb2b2; padding: 8px 12px; border-radius: 6px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; border-left: 4px solid #e74c3c;">
+          <span style="color: #c0392b; font-size: 0.85rem; font-weight: bold;">⚠️ Serviço Atrasado!</span>
+          <button type="button" onclick="abrirModalReagendar(${s.id})" style="padding: 5px 10px; font-size: 0.75rem; background: #e67e22; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            🔄 Justificar & Reagendar
+          </button>
+        </div>
+      ` : ''}
+
+      ${s.agendamento || s.dataAgendada ? `
         <div style="font-size: 0.85rem; margin-top: 6px; padding: 8px; border-radius: 6px; background: ${emAtraso ? '#fde8e8' : '#ebf5fb'}; border-left: 4px solid ${emAtraso ? '#e74c3c' : '#2980b9'}; color: ${emAtraso ? '#c0392b' : '#2980b9'}; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
           <div>
-            📅 <strong>Agendado para:</strong> ${s.agendamento}${emAtraso ? '<br><strong style="color: #e74c3c;">⚠️ SERVIÇO EM ATRASO!</strong>' : ''}
+            📅 <strong>Agendado para:</strong> ${s.agendamento || s.dataAgendada}
           </div>
-          ${emAtraso ? `<button onclick="solicitarReagendamento(${s.id})" style="padding: 4px 8px; font-size: 0.75rem; background: #e67e22; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⏰ Reagendar</button>` : ''}
         </div>
       ` : ''}
 
@@ -291,7 +307,7 @@ function renderizarServicos(servicos) {
           <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 3px;">
             ${historico.map(h => `
               <div>
-                <strong>${h.icone} ${h.acao}:</strong> ${h.dataHora}
+                <strong>${h.icone || '•'} ${h.acao}:</strong> ${h.dataHora || h.data}
                 ${h.detalhes ? `<span style="color: #c0392b;"> (${h.detalhes})</span>` : ''}
               </div>
             `).join('')}
@@ -315,7 +331,6 @@ function renderizarServicos(servicos) {
   `;
   }).join('');
 }
-
 /* ==========================================================================
    AÇÕES DOS SERVIÇOS (INICIAR, PAUSAR, CONCLUIR)
    ========================================================================== */
