@@ -36,6 +36,8 @@ let perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
 
 document.addEventListener('DOMContentLoaded', () => {
   carregarDadosFazendaNaTela();
+  verificarServicosAtrasados(); 
+  renderizarServicos();
   if (!localStorage.getItem('dadosFazenda')) {
     abrirModalPerfilFazenda(true);
   }
