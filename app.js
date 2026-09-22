@@ -836,3 +836,124 @@ function atualizarStatusConexao() {
     }
   }
 }
+/* ==========================================================================
+   GERENCIAMENTO DAS ÁREAS DA PROPRIEDADE
+   ========================================================================== */
+
+// Variável para armazenar temporariamente a imagem enviada
+let fotoAreaTemp = '';
+
+// 1. Função para abrir o Modal
+function abrirModalAreas() {
+  const modal = document.getElementById('modal-areas');
+  if (modal) {
+    modal.style.display = 'flex';
+    renderizarListaAreas();
+  } else {
+    console.error("Elemento 'modal-areas' não foi encontrado no HTML.");
+  }
+}
+
+// 2. Função para fechar o Modal
+function fecharModalAreas() {
+  const modal = document.getElementById('modal-areas');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+// 3. Função para carregar a foto (opcional)
+function carregarFotoArea(e) {
+  const file = e.target.files[0];
+  const preview = document.getElementById('preview-foto-area');
+  
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (ev) => { 
+      fotoAreaTemp = ev.target.result;
+      if (preview) {
+        preview.innerHTML = `<img src="${fotoAreaTemp}" style="max-width: 100%; max-height: 120px; border-radius: 6px; margin-top: 5px;">`;
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+// 4. Função para salvar uma nova área
+function salvarNovaArea(e) {
+  e.preventDefault();
+  const inputNome = document.getElementById('nome-area');
+  if (!inputNome || !inputNome.value.trim()) return;
+
+  // Garante que a lista de áreas existe
+  if (typeof areasPropriedade === 'undefined') {
+    window.areasPropriedade = [];
+  }
+
+  const novaArea = { 
+    id: Date.now(), 
+    nome: inputNome.value.trim(),
+    foto: fotoAreaTemp 
+  };
+
+  areasPropriedade.push(novaArea);
+  
+  // Limpa imagem temporária e preview
+  fotoAreaTemp = '';
+  const preview = document.getElementById('preview-foto-area');
+  if (preview) preview.innerHTML = '';
+
+  // Salva no LocalStorage se a função existir
+  if (typeof salvarDadosLocais === 'function') {
+    salvarDadosLocais();
+  } else {
+    localStorage.setItem('agro_areas', JSON.stringify(areasPropriedade));
+  }
+
+  if (typeof atualizarAutocompleteAreas === 'function') {
+    atualizarAutocompleteAreas();
+  }
+
+  renderizarListaAreas();
+  e.target.reset(); // Limpa o formulário
+}
+
+// 5. Função para exibir as áreas cadastradas na lista
+function renderizarListaAreas() {
+  const container = document.getElementById('lista-areas-cadastradas');
+  if (!container) return;
+
+  if (typeof areasPropriedade === 'undefined' || areasPropriedade.length === 0) {
+    container.innerHTML = '<p style="font-size: 0.85rem; color: #7f8c8d; text-align: center;">Nenhum local cadastrado ainda.</p>';
+    return;
+  }
+
+  container.innerHTML = areasPropriedade.map(a => `
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        ${a.foto ? `<img src="${a.foto}" style="width: 35px; height: 35px; border-radius: 4px; object-fit: cover;">` : '📍'}
+        <strong style="font-size: 0.9rem; color: #2d3748;">${a.nome}</strong>
+      </div>
+      <button type="button" onclick="excluirArea(${a.id})" style="background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 0.9rem; padding: 4px;" title="Excluir Área">🗑️</button>
+    </div>
+  `).join('');
+}
+
+// 6. Função para excluir uma área
+function excluirArea(id) {
+  if (typeof areasPropriedade !== 'undefined') {
+    areasPropriedade = areasPropriedade.filter(a => a.id !== id);
+    
+    if (typeof salvarDadosLocais === 'function') {
+      salvarDadosLocais();
+    } else {
+      localStorage.setItem('agro_areas', JSON.stringify(areasPropriedade));
+    }
+
+    if (typeof atualizarAutocompleteAreas === 'function') {
+      atualizarAutocompleteAreas();
+    }
+
+    renderizarListaAreas();
+  }
+}
