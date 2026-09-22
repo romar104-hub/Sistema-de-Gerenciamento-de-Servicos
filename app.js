@@ -1063,3 +1063,104 @@ function confirmarReagendamento(event) {
 
   fecharModalReagendar();
 }
+/* ==========================================================================
+   FUNÇÕES PARA O MODAL DE REAGENDAMENTO E JUSTIFICATIVA
+   ========================================================================== */
+
+let idServicoReagendar = null;
+
+// 1. Abre a janela do modal
+function abrirModalReagendar(id) {
+  idServicoReagendar = id;
+  const lista = (typeof servicos !== 'undefined' ? servicos : carregarServicos());
+  const servico = lista.find(s => s.id === id);
+  
+  if (!servico) {
+    alert("Serviço não encontrado.");
+    return;
+  }
+
+  const infoEl = document.getElementById('info-servico-atrasado');
+  if (infoEl) {
+    infoEl.innerHTML = `<strong>Serviço:</strong> ${(servico.nome || 'Serviço').toUpperCase()}<br><strong>Local:</strong> ${servico.local || 'N/A'}<br><strong>Agendamento Anterior:</strong> ${servico.agendamento || servico.dataAgendada || 'N/A'}`;
+  }
+
+  // Preenche a nova data padrão como hoje
+  const inputNovaData = document.getElementById('nova-data-agendada');
+  if (inputNovaData) {
+    const hojeStr = new Date().toISOString().split('T')[0];
+    inputNovaData.value = hojeStr;
+  }
+
+  const modal = document.getElementById('modal-reagendar');
+  if (modal) {
+    modal.style.display = 'flex';
+  } else {
+    alert("Erro: O elemento 'modal-reagendar' não foi encontrado no arquivo index.html.");
+  }
+}
+
+// 2. Fecha a janela do modal
+function fecharModalReagendar() {
+  idServicoReagendar = null;
+  const form = document.querySelector('#modal-reagendar form');
+  if (form) form.reset();
+  const modal = document.getElementById('modal-reagendar');
+  if (modal) modal.style.display = 'none';
+}
+
+// 3. Salva a justificativa e o novo agendamento
+function confirmarReagendamento(event) {
+  event.preventDefault();
+
+  const justificativa = document.getElementById('justificativa-atraso').value.trim();
+  const novaData = document.getElementById('nova-data-agendada').value;
+  const novoHorario = document.getElementById('novo-horario-agendado').value;
+
+  const lista = (typeof servicos !== 'undefined' ? servicos : carregarServicos());
+  const servico = lista.find(s => s.id === idServicoReagendar);
+
+  if (servico) {
+    const dataFormatada = novaData.split('-').reverse().join('/') + (novoHorario ? ` às ${novoHorario}` : '');
+    const dataAnterior = servico.agendamento || servico.dataAgendada || 'Anterior';
+    
+    // Atualiza o agendamento
+    servico.agendamento = dataFormatada;
+    servico.dataAgendada = novaData;
+    servico.isAtrasado = false;
+    if (servico.status === 'Pendente' || servico.status === 'pendente') {
+      servico.status = 'Agendado';
+    }
+
+    // Registra no Histórico de Execução
+    if (!servico.historicoExecucao) servico.historicoExecucao = [];
+    
+    const agora = new Date();
+    const dataHoraAtual = agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    servico.historicoExecucao.push({
+      icone: '⏰',
+      acao: 'Reagendado',
+      dataHora: dataHoraAtual,
+      detalhes: `De: ${dataAnterior} Para: ${dataFormatada} | Motivo: ${justificativa}`
+    });
+
+    // Salva no LocalStorage
+    if (typeof salvarDadosLocais === 'function') {
+      salvarDadosLocais();
+    } else if (typeof salvarServicos === 'function') {
+      salvarServicos(lista);
+    } else {
+      localStorage.setItem('agro_servicos', JSON.stringify(lista));
+    }
+
+    // Recarrega a tela
+    if (typeof renderizarServicos === 'function') {
+      renderizarServicos();
+    } else {
+      location.reload();
+    }
+  }
+
+  fecharModalReagendar();
+}
