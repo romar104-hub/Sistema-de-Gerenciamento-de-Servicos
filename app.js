@@ -108,13 +108,13 @@ async function buscarClimaBelem() {
 }
 
 function interpretarCodigoClima(code) {
-  if (code === 0) return 'Céu Limpo';
-  if (code >= 1 && code <= 3) return 'Parcialmente Nublado';
-  if (code >= 45 && code <= 48) return 'Névoa';
-  if (code >= 51 && code <= 67) return 'Chuva Fina / Chuva';
-  if (code >= 80 && code <= 82) return 'Pancadas de Chuva';
-  if (code >= 95) return 'Trovoadas';
-  return 'Ensolarado';
+  if (code === 0) return { texto: 'Céu Limpo', icone: '☀️' };
+  if (code >= 1 && code <= 3) return { texto: 'Parcialmente Nublado', icone: '⛅' };
+  if (code >= 45 && code <= 48) return { texto: 'Névoa', icone: '🌫️' };
+  if (code >= 51 && code <= 67) return { texto: 'Chuva Fina / Chuva', icone: '🌧️' };
+  if (code >= 80 && code <= 82) return { texto: 'Pancadas de Chuva', icone: '🌦️' };
+  if (code >= 95) return { texto: 'Trovoadas', icone: '⛈️' };
+  return { texto: 'Ensolarado', icone: '☀️' };
 }
 
 /* ==========================================================================
