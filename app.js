@@ -86,6 +86,7 @@ function atualizarLabelPerfil() {
 async function buscarClimaBelem() {
   const elemTemp = document.getElementById('clima-temp');
   const elemDesc = document.getElementById('clima-desc');
+  const elemIcon = document.getElementById('weather-icon');
   
   // Coordenadas aproximadas de Belém do São Francisco - PE: Lat -8.76, Lon -38.96
   const urlApi = 'https://api.open-meteo.com/v1/forecast?latitude=-8.76&longitude=-38.96&current_weather=true';
@@ -97,13 +98,17 @@ async function buscarClimaBelem() {
     const dados = await resposta.json();
     const temp = Math.round(dados.current_weather.temperature);
     const code = dados.current_weather.weathercode;
+    const climaInfo = interpretarCodigoClima(code);
 
     if (elemTemp) elemTemp.innerText = `${temp}°C`;
-    if (elemDesc) elemDesc.innerText = interpretarCodigoClima(code);
+    if (elemDesc) elemDesc.innerText = climaInfo.texto;
+    if (elemIcon) elemIcon.innerText = climaInfo.icone;
+
   } catch (erro) {
     console.error('Erro ao obter clima:', erro);
     if (elemTemp) elemTemp.innerText = '--°C';
-    if (elemDesc) elemDesc.innerText = 'Sem conexão';
+    if (elemDesc) elemDesc.innerText = 'Indisponível';
+    if (elemIcon) elemIcon.innerText = '⚠️';
   }
 }
 
@@ -116,6 +121,10 @@ function interpretarCodigoClima(code) {
   if (code >= 95) return { texto: 'Trovoadas', icone: '⛈️' };
   return { texto: 'Ensolarado', icone: '☀️' };
 }
+
+// Executa a busca imediatamente e agenda a atualização automática a cada 15 minutos
+buscarClimaBelem();
+setInterval(buscarClimaBelem, 15 * 60 * 1000);
 
 /* ==========================================================================
    GERENCIAMENTO DE ÁREAS DA PROPRIEDADE
