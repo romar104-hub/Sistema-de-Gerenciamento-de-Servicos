@@ -957,3 +957,92 @@ function excluirArea(id) {
     renderizarListaAreas();
   }
 }
+/* ==========================================================================
+   SISTEMA DE ALERTA DE ATRASOS E REAGENDAMENTO
+   ========================================================================== */
+
+let idServicoReagendar = null;
+
+// 1. Verifica automaticamente serviços agendados cuja data já passou
+function verificarServicosAtrasados() {
+  const hojeStr = new Date().toISOString().split('T')[0];
+
+  servicos.forEach(s => {
+    // Se o serviço está Agendado/Pendente e a data é menor que a data atual
+    if ((s.status === 'Agendado' || s.status === 'Pendente') && s.dataAgendada && s.dataAgendada < hojeStr) {
+      s.isAtrasado = true;
+    } else {
+      s.isAtrasado = false;
+    }
+  });
+}
+
+// 2. Abre o modal de reagendamento para um serviço específico
+function abrirModalReagendar(id) {
+  idServicoReagendar = id;
+  const servico = servicos.find(s => s.id === id);
+  if (!servico) return;
+
+  const infoEl = document.getElementById('info-servico-atrasado');
+  if (infoEl) {
+    infoEl.innerHTML = `<strong>Serviço:</strong> ${servico.nome}<br><strong>Local:</strong> ${servico.local}<br><strong>Data Prevista:</strong> ${formatarData(servico.dataAgendada)}`;
+  }
+
+  // Define a data mínima do input para hoje
+  const inputNovaData = document.getElementById('nova-data-agendada');
+  if (inputNovaData) {
+    const hojeStr = new Date().toISOString().split('T')[0];
+    inputNovaData.min = hojeStr;
+    inputNovaData.value = hojeStr;
+  }
+
+  const modal = document.getElementById('modal-reagendar');
+  if (modal) modal.style.display = 'flex';
+}
+
+// 3. Fecha o modal de reagendamento
+function fecharModalReagendar() {
+  idServicoReagendar = null;
+  const form = document.querySelector('#modal-reagendar form');
+  if (form) form.reset();
+  const modal = document.getElementById('modal-reagendar');
+  if (modal) modal.style.display = 'none';
+}
+
+// 4. Grava a justificativa no histórico e atualiza a nova data
+function confirmarReagendamento(event) {
+  event.preventDefault();
+
+  const justificativa = document.getElementById('justificativa-atraso').value.trim();
+  const novaData = document.getElementById('nova-data-agendada').value;
+  const novoHorario = document.getElementById('novo-horario-agendado').value;
+
+  const servico = servicos.find(s => s.id === idServicoReagendar);
+  if (servico) {
+    const dataAnterior = servico.dataAgendada;
+    servico.dataAgendada = novaData;
+    servico.horaAgendada = novoHorario || null;
+    servico.status = 'Agendado';
+    servico.isAtrasado = false;
+
+    // Inicializa o histórico se não existir
+    if (!servico.historico) servico.historico = [];
+
+    // Registo de auditoria/justificativa
+    servico.historico.push({
+      data: new Date().toLocaleString('pt-BR'),
+      acao: `Reagendado de ${formatarData(dataAnterior)} para ${formatarData(novaData)}. Motivo: "${justificativa}"`
+    });
+
+    if (typeof salvarDadosLocais === 'function') {
+      salvarDadosLocais();
+    } else {
+      localStorage.setItem('agro_servicos', JSON.stringify(servicos));
+    }
+
+    if (typeof renderizarServicos === 'function') renderizarServicos();
+    if (typeof atualizarContadores === 'function') atualizarContadores();
+  }
+
+  fecharModalReagendar();
+}
