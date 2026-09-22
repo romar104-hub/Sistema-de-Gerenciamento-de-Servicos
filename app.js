@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!localStorage.getItem('dadosFazenda')) {
     abrirModalPerfilFazenda(true);
   }
-  if (typeof buscarClimaBelem === 'function') buscarClimaBelem();
+  buscarClimaBelem();
   atualizarDashboard();
   filtrarServicos();
   if (typeof atualizarStatusConexao === 'function') atualizarStatusConexao();
@@ -78,6 +78,126 @@ function atualizarLabelPerfil() {
   if (label) {
     label.innerText = perfilAtual === 'admin' ? 'Modo: Admin (Sair)' : 'Entrar como Admin';
   }
+}
+
+/* ==========================================================================
+   INTEGRAÇÃO DE CLIMA (BELÉM DO SÃO FRANCISCO - PE)
+   ========================================================================== */
+async function buscarClimaBelem() {
+  const elemTemp = document.getElementById('clima-temp');
+  const elemDesc = document.getElementById('clima-desc');
+  
+  // Coordenadas aproximadas de Belém do São Francisco - PE: Lat -8.76, Lon -38.96
+  const urlApi = 'https://api.open-meteo.com/v1/forecast?latitude=-8.76&longitude=-38.96&current_weather=true';
+
+  try {
+    const resposta = await fetch(urlApi);
+    if (!resposta.ok) throw new Error('Erro na requisição');
+    
+    const dados = await resposta.json();
+    const temp = Math.round(dados.current_weather.temperature);
+    const code = dados.current_weather.weathercode;
+
+    if (elemTemp) elemTemp.innerText = `${temp}°C`;
+    if (elemDesc) elemDesc.innerText = interpretarCodigoClima(code);
+  } catch (erro) {
+    console.error('Erro ao obter clima:', erro);
+    if (elemTemp) elemTemp.innerText = '--°C';
+    if (elemDesc) elemDesc.innerText = 'Sem conexão';
+  }
+}
+
+function interpretarCodigoClima(code) {
+  if (code === 0) return 'Céu Limpo';
+  if (code >= 1 && code <= 3) return 'Parcialmente Nublado';
+  if (code >= 45 && code <= 48) return 'Névoa';
+  if (code >= 51 && code <= 67) return 'Chuva Fina / Chuva';
+  if (code >= 80 && code <= 82) return 'Pancadas de Chuva';
+  if (code >= 95) return 'Trovoadas';
+  return 'Ensolarado';
+}
+
+/* ==========================================================================
+   GERENCIAMENTO DE ÁREAS DA PROPRIEDADE
+   ========================================================================== */
+function carregarAreas() {
+  try {
+    const dados = localStorage.getItem(STORAGE_KEY_AREAS);
+    return dados ? JSON.parse(dados) : [
+      { id: 1, nome: 'Sede / Escritório' },
+      { id: 2, nome: 'Baia dos Reprodutores Boer' },
+      { id: 3, nome: 'Piquete 01' },
+      { id: 4, nome: 'Piquete 02' },
+      { id: 5, nome: 'Área de Matrizes / Maternidade' }
+    ];
+  } catch (e) {
+    return [];
+  }
+}
+
+function salvarAreas(areas) {
+  localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
+  atualizarSelectAreasServico();
+}
+
+function abrirModalAreas() {
+  renderizarListaAreas();
+  const modal = document.getElementById('modal-areas');
+  if (modal) modal.style.display = 'flex';
+}
+
+function fecharModalAreas() {
+  const modal = document.getElementById('modal-areas');
+  if (modal) modal.style.display = 'none';
+}
+
+function adicionarNovaArea(event) {
+  if (event) event.preventDefault();
+  const input = document.getElementById('nome-nova-area');
+  if (!input) return;
+  const nome = input.value.trim();
+  if (!nome) return alert('Informe o nome da área.');
+
+  const areas = carregarAreas();
+  areas.push({ id: Date.now(), nome: nome });
+  salvarAreas(areas);
+  input.value = '';
+  renderizarListaAreas();
+}
+
+function removerArea(id) {
+  if (confirm('Deseja remover esta área?')) {
+    let areas = carregarAreas();
+    areas = areas.filter(a => Number(a.id) !== Number(id));
+    salvarAreas(areas);
+    renderizarListaAreas();
+  }
+}
+
+function renderizarListaAreas() {
+  const container = document.getElementById('lista-areas-container');
+  if (!container) return;
+  const areas = carregarAreas();
+
+  if (areas.length === 0) {
+    container.innerHTML = '<p style="color: #7f8c8d; font-size: 0.85rem;">Nenhuma área cadastrada.</p>';
+    return;
+  }
+
+  container.innerHTML = areas.map(a => `
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #e2e8f0;">
+      <span style="font-size: 0.9rem; font-weight: 500; color: #1e293b;">📍 ${a.nome}</span>
+      ${perfilAtual === 'admin' ? `<button onclick="removerArea(${a.id})" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; cursor: pointer;">Excluir</button>` : ''}
+    </div>
+  `).join('');
+}
+
+function atualizarSelectAreasServico() {
+  const select = document.getElementById('local-servico');
+  if (!select) return;
+  const areas = carregarAreas();
+  select.innerHTML = '<option value="">Selecione o local...</option>' + 
+    areas.map(a => `<option value="${a.nome}">${a.nome}</option>`).join('');
 }
 
 /* ==========================================================================
@@ -127,9 +247,7 @@ function verificarServicosAtrasados() {
    MODAIS E FORMULÁRIOS DE SERVIÇOS
    ========================================================================== */
 function abrirModal() {
-  if (typeof atualizarSelectAreasServico === 'function') {
-    atualizarSelectAreasServico();
-  }
+  atualizarSelectAreasServico();
   const modal = document.getElementById('modal-servico');
   if (modal) modal.style.display = 'flex';
 }
@@ -234,7 +352,6 @@ function renderizarServicos(servicos) {
   const container = document.getElementById('lista-servicos');
   if (!container) return;
 
-  // Oculta/Exibe botões administrativos
   const areaBackup = document.getElementById('btn-backup');
   const areaImportar = document.getElementById('btn-importar');
   if (areaBackup) areaBackup.style.display = (perfilAtual === 'admin') ? 'inline-block' : 'none';
@@ -255,7 +372,6 @@ function renderizarServicos(servicos) {
     const statusAtual = (s.status || '').toString().toLowerCase().trim();
     const isConcluido = statusAtual === 'concluído' || statusAtual === 'concluido';
 
-    // LÓGICA DE VERIFICAÇÃO DE ATRASO
     const hojeStr = new Date().toISOString().split('T')[0];
     const emAtraso = (!isConcluido) && (
       s.isAtrasado || 
@@ -302,7 +418,6 @@ function renderizarServicos(servicos) {
       <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data || s.dataCriacao || 'N/A'}</p>
       <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0;">Prioridade: <strong>${s.prioridade || 'Normal'}</strong></p>
 
-      <!-- ALERTA DE ATRASO E BOTÃO DE REAGENDAMENTO -->
       ${emAtraso ? `
         <div style="background: #fff5f5; border: 1px solid #feb2b2; padding: 8px 12px; border-radius: 6px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; border-left: 4px solid #e74c3c;">
           <span style="color: #c0392b; font-size: 0.85rem; font-weight: bold;">⚠️ Serviço Atrasado!</span>
@@ -823,7 +938,7 @@ function atualizarDashboard() {
 }
 
 /* ==========================================================================
-   PERFIL DA FAZENDA E CLIMA (BELÉM DO SÃO FRANCISCO - PE)
+   PERFIL DA FAZENDA
    ========================================================================== */
 function carregarDadosFazendaNaTela() {
   if (document.getElementById('header-nome-fazenda')) {
