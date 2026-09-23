@@ -39,20 +39,27 @@ document.addEventListener('DOMContentLoaded', () => {
   carregarDadosFazendaNaTela();
   verificarServicosAtrasados(); 
   renderizarServicos();
+  
   if (!localStorage.getItem('dadosFazenda')) {
     abrirModalPerfilFazenda(true);
   }
+
   buscarClimaBelem();
-atualizarDashboard();
-filtrarServicos();
-if (typeof atualizarStatusConexao === 'function') atualizarStatusConexao();
-atualizarLabelPerfil();
+  atualizarDashboard();
+  filtrarServicos();
 
-if (typeof atualizarStatusConexao === 'function') {
-  window.addEventListener('online', atualizarStatusConexao);
-  window.addEventListener('offline', atualizarStatusConexao);
-}
+  if (typeof atualizarStatusConexao === 'function') atualizarStatusConexao();
+  atualizarLabelPerfil();
 
+  if (typeof atualizarStatusConexao === 'function') {
+    window.addEventListener('online', atualizarStatusConexao);
+    window.addEventListener('offline', atualizarStatusConexao);
+  }
+});
+
+/* ==========================================================================
+   SISTEMA DE AUTENTICAÇÃO E PERFIL
+   ========================================================================== */
 function solicitarAcessoAdmin() {
   if (perfilAtual === 'usuario') {
     const senha = prompt("Digite a senha de Administrador:");
@@ -91,7 +98,6 @@ async function buscarClimaBelem() {
   const urlApi = 'https://api.open-meteo.com/v1/forecast?latitude=-8.7531&longitude=-38.9667&current_weather=true';
 
   try {
-    // Controller para cancelar a requisição se demorar mais de 6 segundos
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
@@ -156,9 +162,8 @@ function interpretarCodigoClima(code) {
   }
 }
 
-// Executa a busca imediatamente e agenda a atualização automática a cada 15 minutos
-buscarClimaBelem();
 setInterval(buscarClimaBelem, 15 * 60 * 1000);
+
 /* ==========================================================================
    GERENCIAMENTO DE ÁREAS DA PROPRIEDADE
    ========================================================================== */
@@ -283,6 +288,34 @@ function verificarServicosAtrasados() {
       s.isAtrasado = false;
     }
   });
+}
+
+function atualizarDashboard() {
+  const servicos = carregarServicos();
+  const total = servicos.length;
+
+  let pendentes = 0;
+  let agendados = 0;
+  let emExecucao = 0;
+  let concluidos = 0;
+
+  servicos.forEach(s => {
+    const st = (s.status || '').toLowerCase().trim();
+    if (st === 'pendente') pendentes++;
+    else if (st === 'agendado') agendados++;
+    else if (st === 'em execução' || st === 'em execucao') emExecucao++;
+    else if (st === 'concluído' || st === 'concluido') concluidos++;
+  });
+
+  const elemAg = document.getElementById('qtd-agendados');
+  const elemPe = document.getElementById('qtd-pendentes');
+  const elemEx = document.getElementById('qtd-execucao');
+  const elemCo = document.getElementById('qtd-concluidos');
+
+  if (elemAg) elemAg.innerText = agendados;
+  if (elemPe) elemPe.innerText = pendentes;
+  if (elemEx) elemEx.innerText = emExecucao;
+  if (elemCo) elemCo.innerText = concluidos;
 }
 
 /* ==========================================================================
@@ -511,7 +544,7 @@ function renderizarServicos(servicos) {
 }
 
 /* ==========================================================================
-   AÇÕES DOS SERVIÇOS (INICIAR, PAUSAR, CONCLUIR)
+   AÇÕES DOS SERVIÇOS (INICIAR, PAUSAR, CONCLUIR, EXCLUIR)
    ========================================================================== */
 function iniciarServico(id) {
   let servicos = carregarServicos();
@@ -563,6 +596,14 @@ function confirmarPausaServico() {
     salvarServicos(servicos);
   }
   fecharModalJustificativa();
+}
+
+function excluirServico(id) {
+  if (confirm("Tem certeza que deseja excluir este serviço permanentemente?")) {
+    let servicos = carregarServicos();
+    servicos = servicos.filter(s => Number(s.id) !== Number(id));
+    salvarServicos(servicos);
+  }
 }
 
 /* ==========================================================================
@@ -826,56 +867,27 @@ function confirmarEdicaoConclusao(event) {
 
   let servicos = carregarServicos();
   const item = servicos.find(s => Number(s.id) === Number(servicoEdicaoConclusaoId));
-
   if (item) {
     item.conclusaoInfo = relatorio;
     item.fotos = imagensTempConclusao;
     salvarServicos(servicos);
   }
-
   fecharModalEditarConclusao();
 }
 
 /* ==========================================================================
-   RELATÓRIOS E COMPARTILHAMENTO
+   VISUALIZAÇÃO DE IMAGENS E RELATÓRIOS (WHATSAPP / RESUMO)
    ========================================================================== */
-function enviarRelatorioWhatsApp(id) {
-  const servicos = carregarServicos();
-  const s = servicos.find(item => Number(item.id) === Number(id));
-  if (!s) return;
-
-  const nomeFazenda = dadosFazenda.nome || 'CRIATÓRIO MARQUES';
-  const historico = s.historicoExecucao || [];
-
-  let mensagem = `*🟢 RELATÓRIO DE SERVIÇO CONCLUÍDO*\n`;
-  mensagem += `*${nomeFazenda.toUpperCase()}*\n\n`;
-  mensagem += `📋 *Serviço:* ${s.nome.toUpperCase()}\n`;
-  mensagem += `📍 *Local:* ${s.local}\n`;
-  mensagem += `👤 *Responsável:* ${s.responsavel}\n`;
-  mensagem += `📅 *Criado em:* ${s.data}\n`;
-  if (s.agendamento) mensagem += `🗓️ *Agendado para:* ${s.agendamento}\n`;
-
-  if (s.observacoes) {
-    mensagem += `\n📝 *Orientações:* ${s.observacoes}\n`;
-  }
-
-  if (historico.length > 0) {
-    mensagem += `\n⏱️ *Linha do Tempo:*\n`;
-    historico.forEach(h => {
-      mensagem += `${h.icone} ${h.acao}: ${h.dataHora}${h.detalhes ? ' (' + h.detalhes + ')' : ''}\n`;
-    });
-  }
-
-  if (s.conclusaoInfo) {
-    mensagem += `\n✅ *Parecer de Conclusão:*\n${s.conclusaoInfo}\n`;
-  }
-
-  if (s.fotos && s.fotos.length > 0) {
-    mensagem += `\n📸 *Comprovantes Anexados:* ${s.fotos.length} foto(s) registrada(s) no sistema.`;
-  }
-
-  const urlWhatsApp = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
-  window.open(urlWhatsApp, '_blank');
+function ampliarImagem(src) {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px; box-sizing: border-box;';
+  modal.innerHTML = `
+    <div style="position: relative; max-width: 90%; max-height: 90%;">
+      <img src="${src}" style="max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+      <button onclick="this.parentElement.parentElement.remove()" style="position: absolute; top: -10px; right: -10px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; cursor: pointer; font-size: 16px;">✕</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
 }
 
 function abrirRelatorioCompleto(id) {
@@ -883,130 +895,157 @@ function abrirRelatorioCompleto(id) {
   const s = servicos.find(item => Number(item.id) === Number(id));
   if (!s) return;
 
-  const container = document.getElementById('conteudo-relatorio');
-  const historico = s.historicoExecucao || [];
-
-  if (container) {
-    container.innerHTML = `
-      <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <h4 style="margin: 0 0 6px 0; color: #2e5a3c;">${(s.nome || 'Serviço').toUpperCase()}</h4>
-        <p style="margin: 0; font-size: 0.9rem; color: #64748b;">📍 Local: ${s.local} | 👤 Responsável: ${s.responsavel}</p>
-        <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #64748b;">📅 Criado: ${s.data} ${s.agendamento ? '| 📅 Agendado: ' + s.agendamento : ''}</p>
-      </div>
-      <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: 10px;">
-        <strong>⏱️ Histórico e Linha do Tempo:</strong>
-        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem;">
-          ${historico.map(h => `<div style="border-bottom: 1px dashed #e2e8f0; padding: 4px 0;"><strong>${h.icone}${h.acao}:</strong> ${h.dataHora}${h.detalhes ? `<div style="color: #c0392b;">Motivo: ${h.detalhes}</div>` : ''}</div>`).join('')}
-        </div>
-      </div>
-      <div style="background: #f0fdf4; padding: 10px; border-radius: 6px; border: 1px solid #bbf7d0; margin-top: 10px;">
-        <strong style="color: #166534;">✅ Conclusão:</strong>
-        <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #15803d;">${s.conclusaoInfo || 'Nenhuma informação detalhada.'}</p>
-      </div>
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 15px; box-sizing: border-box;';
+  
+  modal.innerHTML = `
+    <div style="background: white; border-radius: 12px; padding: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.2);">
+      <h3 style="margin-top: 0; color: #1b3b22; border-bottom: 2px solid #2e5a3c; padding-bottom: 8px;">📋 RELATÓRIO DE SERVIÇO</h3>
+      <p><strong>Serviço:</strong> ${s.nome}</p>
+      <p><strong>Local:</strong> ${s.local}</p>
+      <p><strong>Responsável:</strong> ${s.responsavel}</p>
+      <p><strong>Prioridade:</strong> ${s.prioridade || 'Normal'}</p>
+      <p><strong>Data de Criação:</strong> ${s.data || 'N/A'}</p>
+      ${s.observacoes ? `<p><strong>Observações:</strong> ${s.observacoes}</p>` : ''}
+      <hr style="border: 0; border-top: 1px solid #eee; margin: 12px 0;">
+      <p><strong>Relatório de Conclusão:</strong></p>
+      <div style="background: #f8fafc; padding: 10px; border-radius: 6px; border-left: 4px solid #27ae60; font-size: 0.9rem;">${s.conclusaoInfo || 'Sem descrição.'}</div>
       ${s.fotos && s.fotos.length > 0 ? `
-        <div style="margin-top: 10px;">
-          <strong>📸 Comprovantes:</strong>
-          <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
-            ${s.fotos.map(f => `<img src="${f}" class="img-zoom" onclick="ampliarImagem('${f}')" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #27ae60; cursor: pointer;">`).join('')}
-          </div>
+        <p style="margin-top: 12px;"><strong>Fotos Registradas:</strong></p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          ${s.fotos.map(f => `<img src="${f}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; cursor: pointer;" onclick="ampliarImagem('${f}')">`).join('')}
         </div>
       ` : ''}
-    `;
+      <div style="margin-top: 20px; text-align: right;">
+        <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Fechar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function enviarRelatorioWhatsApp(id) {
+  const servicos = carregarServicos();
+  const s = servicos.find(item => Number(item.id) === Number(id));
+  if (!s) return;
+
+  let texto = `*${dadosFazenda.nome || 'CRIATÓRIO MARQUES'}*\n`;
+  texto += `*Relatório de Serviço Concluído*\n\n`;
+  texto += `📌 *Serviço:* ${s.nome}\n`;
+  texto += `📍 *Local:* ${s.local}\n`;
+  texto += `👤 *Responsável:* ${s.responsavel}\n`;
+  texto += `📅 *Data:* ${s.data || 'N/A'}\n\n`;
+  texto += `📝 *Relatório de Execução:*\n${s.conclusaoInfo || 'Atividade finalizada com sucesso.'}\n`;
+
+  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+  window.open(url, '_blank');
+}
+
+/* ==========================================================================
+   CONFIGURAÇÕES DA FAZENDA E LOGO
+   ========================================================================== */
+function abrirModalPerfilFazenda(primeiraVez = false) {
+  const modal = document.getElementById('modal-perfil-fazenda');
+  if (!modal) return;
+
+  document.getElementById('input-nome-fazenda').value = dadosFazenda.nome || '';
+  document.getElementById('input-slogan-fazenda').value = dadosFazenda.slogan || '';
+  document.getElementById('input-cidade-fazenda').value = dadosFazenda.cidade || '';
+
+  const preview = document.getElementById('preview-logo-fazenda');
+  if (preview && dadosFazenda.logoBase64) {
+    preview.src = dadosFazenda.logoBase64;
+    preview.style.display = 'block';
+  } else if (preview) {
+    preview.style.display = 'none';
   }
 
-  const modal = document.getElementById('modal-relatorio');
-  if (modal) modal.style.display = 'flex';
+  modal.style.display = 'flex';
 }
 
-function fecharModalRelatorio() {
-  const modal = document.getElementById('modal-relatorio');
+function fecharModalPerfilFazenda() {
+  const modal = document.getElementById('modal-perfil-fazenda');
   if (modal) modal.style.display = 'none';
 }
 
-function ampliarImagem(src) {
-  const img = document.getElementById('img-ampliada');
-  if (img) img.src = src;
-  const modal = document.getElementById('modal-zoom-imagem');
-  if (modal) modal.style.display = 'flex';
+function carregarLogoFazenda(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  comprimirImagem(file, 400, 400, 0.85, function(base64) {
+    logoTempBase64 = base64;
+    const preview = document.getElementById('preview-logo-fazenda');
+    if (preview) {
+      preview.src = base64;
+      preview.style.display = 'block';
+    }
+  });
 }
 
-function fecharZoomImagem() {
-  const modal = document.getElementById('modal-zoom-imagem');
-  if (modal) modal.style.display = 'none';
+function salvarPerfilFazenda(event) {
+  event.preventDefault();
+  
+  dadosFazenda.nome = document.getElementById('input-nome-fazenda').value.trim() || 'CRIATÓRIO MARQUES';
+  dadosFazenda.slogan = document.getElementById('input-slogan-fazenda').value.trim();
+  dadosFazenda.cidade = document.getElementById('input-cidade-fazenda').value.trim();
+  if (logoTempBase64) {
+    dadosFazenda.logoBase64 = logoTempBase64;
+  }
+
+  localStorage.setItem('dadosFazenda', JSON.stringify(dadosFazenda));
+  carregarDadosFazendaNaTela();
+  fecharModalPerfilFazenda();
 }
 
-function excluirServico(id) {
-  if (confirm('Deseja realmente excluir este serviço?')) {
-    let servicos = carregarServicos();
-    salvarServicos(servicos.filter(s => Number(s.id) !== Number(id)));
+function carregarDadosFazendaNaTela() {
+  const titulo = document.getElementById('header-nome-fazenda');
+  const slogan = document.getElementById('header-slogan-fazenda');
+  const logo = document.getElementById('header-logo-fazenda');
+
+  if (titulo) titulo.innerText = dadosFazenda.nome;
+  if (slogan) slogan.innerText = dadosFazenda.slogan;
+  if (logo && dadosFazenda.logoBase64) {
+    logo.src = dadosFazenda.logoBase64;
+    logo.style.display = 'block';
   }
 }
 
 /* ==========================================================================
-   BACKUP E RESTAURAÇÃO
+   BACKUP E IMPORTAÇÃO DE DADOS
    ========================================================================== */
-function exportarBackup() {
-  const dados = localStorage.getItem(STORAGE_KEY) || '[]';
-  const blob = new Blob([dados], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `backup_criatorio_${new Date().toISOString().split('T')[0]}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+function fazerBackup() {
+  const dados = {
+    servicos: carregarServicos(),
+    areas: carregarAreas(),
+    fazenda: dadosFazenda
+  };
+
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dados));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `backup_criatorio_marques_${new Date().toISOString().split('T')[0]}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
 }
 
 function importarBackup(event) {
   const file = event.target.files[0];
   if (!file) return;
+
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const dados = JSON.parse(e.target.result);
-      if (Array.isArray(dados)) { salvarServicos(dados); alert('Backup importado com sucesso!'); }
-    } catch (err) { alert('Arquivo inválido.'); }
+      if (dados.servicos) localStorage.setItem(STORAGE_KEY, JSON.stringify(dados.servicos));
+      if (dados.areas) localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(dados.areas));
+      if (dados.fazenda) localStorage.setItem('dadosFazenda', JSON.stringify(dados.fazenda));
+
+      alert("Dados importados com sucesso!");
+      location.reload();
+    } catch (err) {
+      alert("Erro ao ler o arquivo de backup. Verifique se o arquivo JSON é válido.");
+    }
   };
   reader.readAsText(file);
-}
-
-function atualizarDashboard() {
-  const servicos = carregarServicos();
-  if (document.getElementById('count-agendados')) {
-    document.getElementById('count-agendados').innerText = servicos.filter(s => s.status === 'Agendado').length;
-    document.getElementById('count-pendentes').innerText = servicos.filter(s => s.status === 'Pendente').length;
-    document.getElementById('count-execucao').innerText = servicos.filter(s => s.status === 'Em execução').length;
-    document.getElementById('count-concluidos').innerText = servicos.filter(s => s.status === 'Concluído').length;
-  }
-}
-
-/* ==========================================================================
-   PERFIL DA FAZENDA
-   ========================================================================== */
-function carregarDadosFazendaNaTela() {
-  if (document.getElementById('header-nome-fazenda')) {
-    document.getElementById('header-nome-fazenda').innerText = (dadosFazenda.nome || 'CRIATÓRIO MARQUES').toUpperCase();
-  }
-  if (document.getElementById('header-slogan')) {
-    document.getElementById('header-slogan').innerText = `"${dadosFazenda.slogan || ''}"`;
-  }
-  if (document.getElementById('header-cidade')) {
-    document.getElementById('header-cidade').innerText = `📍 ${dadosFazenda.cidade || 'Belém do São Francisco - PE'}`;
-  }
-  const logoContainer = document.getElementById('header-logo');
-  if (logoContainer) {
-    if (dadosFazenda.logoBase64) {
-      logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo">`;
-    } else {
-      logoContainer.innerText = dadosFazenda.nome ? dadosFazenda.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'CM';
-    }
-  }
-}
-
-function abrirModalPerfilFazenda(isPrimeiroAcesso = false) {
-  const nomeEl = document.getElementById('input-nome-fazenda');
-  if (nomeEl) nomeEl.value = dadosFazenda.nome || '';
-  const sloganEl = document.getElementById('input-slogan-fazenda');
-  if (sloganEl) sloganEl.value = dadosFazenda.slogan || '';
-  const modal = document.getElementById('modal-perfil-fazenda');
-  if (modal) modal.style.display = 'flex';
 }
