@@ -1029,33 +1029,28 @@ function salvarPerfilFazenda(event) {
 }
 
 function carregarDadosFazendaNaTela() {
-  // Recupera as informações do localStorage
   try {
     const salvos = localStorage.getItem('dadosFazenda');
     if (salvos) dadosFazenda = JSON.parse(salvos);
   } catch(e) {}
 
   const titulo = document.getElementById('header-nome-fazenda');
-  const slogan = document.getElementById('header-slogan-fazenda');
-  const logoImg = document.getElementById('header-logo-img');
-  const avatarPadrao = document.getElementById('header-avatar-padrao');
+  const slogan = document.getElementById('header-slogan');
+  const logoContainer = document.getElementById('header-logo');
 
   if (titulo) titulo.innerText = dadosFazenda.nome || 'CRIATÓRIO MARQUES';
-  if (slogan) slogan.innerText = dadosFazenda.slogan ? `"${dadosFazenda.slogan}"` : '';
+  if (slogan) slogan.innerText = dadosFazenda.slogan ? `"${dadosFazenda.slogan}"` : '"Excelência em Genética e Manejo no Sertão"';
   
-  // Se existir uma imagem salva em formato base64, exibe a foto e esconde a bolinha 'CM'
-  if (dadosFazenda.logoBase64 && dadosFazenda.logoBase64.startsWith('data:image')) {
-    if (logoImg) {
-      logoImg.src = dadosFazenda.logoBase64;
-      logoImg.style.display = 'block';
+  if (logoContainer) {
+    if (dadosFazenda.logoBase64 && dadosFazenda.logoBase64.startsWith('data:image')) {
+      // Injeta a imagem contida no container com tamanho e recorte perfeitos
+      logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">`;
+      logoContainer.style.padding = '0';
+      logoContainer.style.overflow = 'hidden';
+    } else {
+      // Restaura o texto padrão "CM" caso não haja imagem
+      logoContainer.innerHTML = 'CM';
     }
-    if (avatarPadrao) {
-      avatarPadrao.style.display = 'none';
-    }
-  } else {
-    // Caso contrário, mostra apenas as iniciais 'CM'
-    if (logoImg) logoImg.style.display = 'none';
-    if (avatarPadrao) avatarPadrao.style.display = 'flex';
   }
 }
 /* ==========================================================================
