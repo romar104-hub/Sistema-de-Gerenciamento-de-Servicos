@@ -71,24 +71,31 @@
 </head>
 <body>
 
-  <!-- CABEÇALHO ÚNICO DA PROPRIEDADE -->
-  <header class="hero-header">
-    <div class="hero-container">
-      
-      <!-- IDENTIDADE E NOME DA FAZENDA -->
-      <div class="brand-section">
-        <div class="brand-logo-container">
-          <div class="brand-logo" id="header-logo">CM</div>
-        </div>
-        <div class="brand-info">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <h1 id="header-nome-fazenda">CRIATÓRIO MARQUES</h1>
-            <button class="btn-edit-farm" onclick="abrirModalPerfilFazenda()">⚙️ Editar</button>
-          </div>
-          <h2>AgroGestão • Serviços da Propriedade</h2>
-          <div class="brand-slogan" id="header-slogan">"Excelência em Genética e Manejo no Sertão"</div>
-        </div>
+ <!-- CABEÇALHO ÚNICO DA PROPRIEDADE -->
+<header class="hero-header">
+  <div class="hero-container">
+    
+    <!-- IDENTIDADE E NOME DA FAZENDA -->
+    <div class="brand-section">
+      <div class="brand-logo-container">
+        <!-- Elemento para as iniciais 'CM' (quando não houver foto) -->
+        <div class="brand-logo" id="header-avatar-padrao">CM</div>
+        
+        <!-- Elemento para carregar a foto da logo -->
+        <img id="header-logo-img" src="" alt="Logo Criatório Marques" style="display: none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
       </div>
+      
+      <div class="brand-info">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h1 id="header-nome-fazenda">CRIATÓRIO MARQUES</h1>
+          <button class="btn-edit-farm" onclick="abrirModalPerfilFazenda()">⚙️ Editar</button>
+        </div>
+        <h2>AgroGestão • Serviços da Propriedade</h2>
+        <div class="brand-slogan" id="header-slogan-fazenda">"Excelência em Genética e Manejo no Sertão"</div>
+      </div>
+    </div>
+  </div>
+</header>
 
       <!-- BOTÕES DE AÇÃO, STATUS E CLIMA -->
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
