@@ -43,11 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
     abrirModalPerfilFazenda(true);
   }
   buscarClimaBelem();
-  atualizarDashboard();
-  filtrarServicos();
-  if (typeof atualizarStatusConexao === 'function') atualizarStatusConexao();
-  atualizarLabelPerfil();
-});
+atualizarDashboard();
+filtrarServicos();
+if (typeof atualizarStatusConexao === 'function') atualizarStatusConexao();
+atualizarLabelPerfil();
 
 if (typeof atualizarStatusConexao === 'function') {
   window.addEventListener('online', atualizarStatusConexao);
@@ -87,25 +86,36 @@ async function buscarClimaBelem() {
   const elemTemp = document.getElementById('clima-temp');
   const elemDesc = document.getElementById('clima-desc');
   const elemIcon = document.getElementById('weather-icon');
-  
-  // Coordenadas aproximadas de Belém do São Francisco - PE: Lat -8.76, Lon -38.96
-  const urlApi = 'https://api.open-meteo.com/v1/forecast?latitude=-8.76&longitude=-38.96&current_weather=true';
+
+  // Coordenadas de Belém do São Francisco - PE (Lat: -8.7531, Lon: -38.9667)
+  const urlApi = 'https://api.open-meteo.com/v1/forecast?latitude=-8.7531&longitude=-38.9667&current_weather=true';
 
   try {
-    const resposta = await fetch(urlApi);
-    if (!resposta.ok) throw new Error('Erro na requisição');
-    
-    const dados = await resposta.json();
-    const temp = Math.round(dados.current_weather.temperature);
-    const code = dados.current_weather.weathercode;
-    const climaInfo = interpretarCodigoClima(code);
+    // Controller para cancelar a requisição se demorar mais de 6 segundos
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-    if (elemTemp) elemTemp.innerText = `${temp}°C`;
-    if (elemDesc) elemDesc.innerText = climaInfo.texto;
-    if (elemIcon) elemIcon.innerText = climaInfo.icone;
+    const resposta = await fetch(urlApi, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!resposta.ok) throw new Error(`HTTP error! status: ${resposta.status}`);
+
+    const dados = await resposta.json();
+
+    if (dados && dados.current_weather) {
+      const temp = Math.round(dados.current_weather.temperature);
+      const code = dados.current_weather.weathercode;
+      const climaInfo = interpretarCodigoClima(code);
+
+      if (elemTemp) elemTemp.innerText = `${temp}°C`;
+      if (elemDesc) elemDesc.innerText = climaInfo.texto;
+      if (elemIcon) elemIcon.innerText = climaInfo.icone;
+    } else {
+      throw new Error('Formato de resposta inválido');
+    }
 
   } catch (erro) {
-    console.error('Erro ao obter clima:', erro);
+    console.error('Erro ao obter clima de Belém do São Francisco:', erro);
     if (elemTemp) elemTemp.innerText = '--°C';
     if (elemDesc) elemDesc.innerText = 'Indisponível';
     if (elemIcon) elemIcon.innerText = '⚠️';
@@ -113,19 +123,42 @@ async function buscarClimaBelem() {
 }
 
 function interpretarCodigoClima(code) {
-  if (code === 0) return { texto: 'Céu Limpo', icone: '☀️' };
-  if (code >= 1 && code <= 3) return { texto: 'Parcialmente Nublado', icone: '⛅' };
-  if (code >= 45 && code <= 48) return { texto: 'Névoa', icone: '🌫️' };
-  if (code >= 51 && code <= 67) return { texto: 'Chuva Fina / Chuva', icone: '🌧️' };
-  if (code >= 80 && code <= 82) return { texto: 'Pancadas de Chuva', icone: '🌦️' };
-  if (code >= 95) return { texto: 'Trovoadas', icone: '⛈️' };
-  return { texto: 'Ensolarado', icone: '☀️' };
+  switch (code) {
+    case 0:
+      return { texto: 'Céu Limpo', icone: '☀️' };
+    case 1:
+      return { texto: 'Predominantemente Limpo', icone: '🌤️' };
+    case 2:
+      return { texto: 'Parcialmente Nublado', icone: '⛅' };
+    case 3:
+      return { texto: 'Nublado', icone: '☁️' };
+    case 45:
+    case 48:
+      return { texto: 'Névoa / Nevoeiro', icone: '🌫️' };
+    case 51:
+    case 53:
+    case 55:
+      return { texto: 'Garoa Leve', icone: '🌦️' };
+    case 61:
+    case 63:
+    case 65:
+      return { texto: 'Chuva', icone: '🌧️' };
+    case 80:
+    case 81:
+    case 82:
+      return { texto: 'Pancadas de Chuva', icone: '🌦️' };
+    case 95:
+    case 96:
+    case 99:
+      return { texto: 'Trovoadas / Tempestade', icone: '⛈️' };
+    default:
+      return { texto: 'Ensolarado', icone: '☀️' };
+  }
 }
 
 // Executa a busca imediatamente e agenda a atualização automática a cada 15 minutos
 buscarClimaBelem();
 setInterval(buscarClimaBelem, 15 * 60 * 1000);
-
 /* ==========================================================================
    GERENCIAMENTO DE ÁREAS DA PROPRIEDADE
    ========================================================================== */
