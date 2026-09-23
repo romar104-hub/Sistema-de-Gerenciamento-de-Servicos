@@ -303,8 +303,10 @@ body {
 }
 
 .service-priority {
-  font-size: 0.8rem;
-  color: var(--text-muted);
+  font-size: 0.85rem;
+  color: #ffffff;
+  font-weight: 600;
+  opacity: 1 !important;
 }
 
 .empty-msg {
@@ -472,4 +474,29 @@ body {
   max-width: 95%; 
   max-height: 90vh; 
   border-radius: 8px; 
+}
+
+/* ================= ESTILOS DE PRIORIDADE COM ALTO CONTRASTE ================= */
+.prioridade-alta,
+span.prioridade-alta,
+.service-priority.alta {
+  color: #ff5252 !important; /* Vermelho vivo e opaco */
+  font-weight: 800 !important;
+  opacity: 1 !important;
+}
+
+.prioridade-normal,
+span.prioridade-normal,
+.service-priority.normal {
+  color: #2ec4b6 !important; /* Verde água / azul turquesa bem visível */
+  font-weight: 800 !important;
+  opacity: 1 !important;
+}
+
+.prioridade-baixa,
+span.prioridade-baixa,
+.service-priority.baixa {
+  color: #4cc9f0 !important; /* Azul claro bem destacado */
+  font-weight: 800 !important;
+  opacity: 1 !important;
 }
