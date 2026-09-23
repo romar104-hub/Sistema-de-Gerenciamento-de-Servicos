@@ -963,9 +963,36 @@ function abrirModalPerfilFazenda(primeiraVez = false) {
   modal.style.display = 'flex';
 }
 
+function abrirModalPerfilFazenda(primeiraVez = false) {
+  const modal = document.getElementById('modal-perfil-fazenda');
+  if (!modal) return;
+
+  // Carrega os dados salvos nos inputs
+  document.getElementById('input-nome-fazenda').value = dadosFazenda.nome || '';
+  document.getElementById('input-slogan-fazenda').value = dadosFazenda.slogan || '';
+  document.getElementById('input-cidade-fazenda').value = dadosFazenda.cidade || '';
+
+  // Reseta a variável temporária com a logo atual salva
+  logoTempBase64 = dadosFazenda.logoBase64 || '';
+
+  const preview = document.getElementById('preview-logo-fazenda');
+  if (preview) {
+    if (dadosFazenda.logoBase64) {
+      preview.src = dadosFazenda.logoBase64;
+      preview.style.display = 'block';
+    } else {
+      preview.style.display = 'none';
+      preview.src = '';
+    }
+  }
+
+  modal.style.display = 'flex';
+}
+
 function fecharModalPerfilFazenda() {
   const modal = document.getElementById('modal-perfil-fazenda');
   if (modal) modal.style.display = 'none';
+  logoTempBase64 = ''; // Limpa a temporária ao fechar
 }
 
 function carregarLogoFazenda(event) {
@@ -983,33 +1010,47 @@ function carregarLogoFazenda(event) {
 }
 
 function salvarPerfilFazenda(event) {
-  event.preventDefault();
+  if (event) event.preventDefault();
   
-  dadosFazenda.nome = document.getElementById('input-nome-fazenda').value.trim() || 'CRIATÓRIO MARQUES';
-  dadosFazenda.slogan = document.getElementById('input-slogan-fazenda').value.trim();
-  dadosFazenda.cidade = document.getElementById('input-cidade-fazenda').value.trim();
-  if (logoTempBase64) {
-    dadosFazenda.logoBase64 = logoTempBase64;
-  }
+  // Atualiza a estrutura global dadosFazenda
+  dadosFazenda = {
+    nome: document.getElementById('input-nome-fazenda').value.trim() || 'CRIATÓRIO MARQUES',
+    slogan: document.getElementById('input-slogan-fazenda').value.trim(),
+    cidade: document.getElementById('input-cidade-fazenda').value.trim(),
+    logoBase64: logoTempBase64 || dadosFazenda.logoBase64 || ''
+  };
 
+  // Salva no localStorage
   localStorage.setItem('dadosFazenda', JSON.stringify(dadosFazenda));
+  
+  // Renderiza imediatamente na tela principal
   carregarDadosFazendaNaTela();
   fecharModalPerfilFazenda();
 }
 
 function carregarDadosFazendaNaTela() {
+  // Garante que pega os dados mais recentes do localStorage caso a variável esteja desatualizada
+  try {
+    const salvos = localStorage.getItem('dadosFazenda');
+    if (salvos) dadosFazenda = JSON.parse(salvos);
+  } catch(e) {}
+
   const titulo = document.getElementById('header-nome-fazenda');
   const slogan = document.getElementById('header-slogan-fazenda');
   const logo = document.getElementById('header-logo-fazenda');
 
-  if (titulo) titulo.innerText = dadosFazenda.nome;
-  if (slogan) slogan.innerText = dadosFazenda.slogan;
-  if (logo && dadosFazenda.logoBase64) {
-    logo.src = dadosFazenda.logoBase64;
-    logo.style.display = 'block';
+  if (titulo) titulo.innerText = dadosFazenda.nome || 'CRIATÓRIO MARQUES';
+  if (slogan) slogan.innerText = dadosFazenda.slogan || '';
+  
+  if (logo) {
+    if (dadosFazenda.logoBase64) {
+      logo.src = dadosFazenda.logoBase64;
+      logo.style.display = 'block'; // Força a exibição da imagem na tela principal
+    } else {
+      logo.style.display = 'none';
+    }
   }
 }
-
 /* ==========================================================================
    BACKUP E IMPORTAÇÃO DE DADOS
    ========================================================================== */
