@@ -476,27 +476,44 @@ body {
   border-radius: 8px; 
 }
 
-/* ================= ESTILOS DE PRIORIDADE COM ALTO CONTRASTE ================= */
+/* ================= CORREÇÃO DE PRIORIDADE EM CARDS COM FUNDO BRANCO ================= */
+
+/* Cor do rótulo "Prioridade:" */
+.service-priority, 
+.prioridade-label {
+  color: #333333 !important;
+  font-weight: 600 !important;
+  opacity: 1 !important;
+  font-size: 0.85rem !important;
+}
+
+/* Prioridade ALTA - Vermelho Escuro e Forte */
 .prioridade-alta,
 span.prioridade-alta,
-.service-priority.alta {
-  color: #ff5252 !important; /* Vermelho vivo e opaco */
+.service-priority.alta,
+.service-priority span,
+[data-prioridade="Alta"] {
+  color: #b71c1c !important; /* Vermelho forte / escuro de alto contraste */
   font-weight: 800 !important;
   opacity: 1 !important;
 }
 
+/* Prioridade NORMAL - Verde Escuro */
 .prioridade-normal,
 span.prioridade-normal,
-.service-priority.normal {
-  color: #2ec4b6 !important; /* Verde água / azul turquesa bem visível */
+.service-priority.normal,
+[data-prioridade="Normal"] {
+  color: #1b5e20 !important;
   font-weight: 800 !important;
   opacity: 1 !important;
 }
 
+/* Prioridade BAIXA - Azul Escuro */
 .prioridade-baixa,
 span.prioridade-baixa,
-.service-priority.baixa {
-  color: #4cc9f0 !important; /* Azul claro bem destacado */
+.service-priority.baixa,
+[data-prioridade="Baixa"] {
+  color: #0d47a1 !important;
   font-weight: 800 !important;
   opacity: 1 !important;
 }
