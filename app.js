@@ -1012,7 +1012,7 @@ function carregarLogoFazenda(event) {
 function salvarPerfilFazenda(event) {
   if (event) event.preventDefault();
   
-  // Atualiza a estrutura global dadosFazenda
+  // Captura os dados dos campos do modal
   dadosFazenda = {
     nome: document.getElementById('input-nome-fazenda').value.trim() || 'CRIATÓRIO MARQUES',
     slogan: document.getElementById('input-slogan-fazenda').value.trim(),
@@ -1020,16 +1020,16 @@ function salvarPerfilFazenda(event) {
     logoBase64: logoTempBase64 || dadosFazenda.logoBase64 || ''
   };
 
-  // Salva no localStorage
+  // Guarda os dados atualizados no armazenamento local
   localStorage.setItem('dadosFazenda', JSON.stringify(dadosFazenda));
   
-  // Renderiza imediatamente na tela principal
+  // Atualiza a interface
   carregarDadosFazendaNaTela();
   fecharModalPerfilFazenda();
 }
 
 function carregarDadosFazendaNaTela() {
-  // Garante que pega os dados mais recentes do localStorage caso a variável esteja desatualizada
+  // Recupera as informações do localStorage
   try {
     const salvos = localStorage.getItem('dadosFazenda');
     if (salvos) dadosFazenda = JSON.parse(salvos);
@@ -1037,18 +1037,25 @@ function carregarDadosFazendaNaTela() {
 
   const titulo = document.getElementById('header-nome-fazenda');
   const slogan = document.getElementById('header-slogan-fazenda');
-  const logo = document.getElementById('header-logo-fazenda');
+  const logoImg = document.getElementById('header-logo-img');
+  const avatarPadrao = document.getElementById('header-avatar-padrao');
 
   if (titulo) titulo.innerText = dadosFazenda.nome || 'CRIATÓRIO MARQUES';
-  if (slogan) slogan.innerText = dadosFazenda.slogan || '';
+  if (slogan) slogan.innerText = dadosFazenda.slogan ? `"${dadosFazenda.slogan}"` : '';
   
-  if (logo) {
-    if (dadosFazenda.logoBase64) {
-      logo.src = dadosFazenda.logoBase64;
-      logo.style.display = 'block'; // Força a exibição da imagem na tela principal
-    } else {
-      logo.style.display = 'none';
+  // Se existir uma imagem salva em formato base64, exibe a foto e esconde a bolinha 'CM'
+  if (dadosFazenda.logoBase64 && dadosFazenda.logoBase64.startsWith('data:image')) {
+    if (logoImg) {
+      logoImg.src = dadosFazenda.logoBase64;
+      logoImg.style.display = 'block';
     }
+    if (avatarPadrao) {
+      avatarPadrao.style.display = 'none';
+    }
+  } else {
+    // Caso contrário, mostra apenas as iniciais 'CM'
+    if (logoImg) logoImg.style.display = 'none';
+    if (avatarPadrao) avatarPadrao.style.display = 'flex';
   }
 }
 /* ==========================================================================
