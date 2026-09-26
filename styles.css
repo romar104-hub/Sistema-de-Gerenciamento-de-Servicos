@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ESTILOS MODERNOS (GLASSMORPHISM) - CRIATÓRIO MARQUES (COMPLETO)
+   ESTILOS MODERNOS (GLASSMORPHISM) - CRIATÓRIO MARQUES (CORRIGIDO)
    ========================================================================== */
 
 :root {
@@ -32,14 +32,22 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+/* ESTRUTURA GLOBAL QUE IMPEDE QUE O CABEÇALHO VÁ PARA O LADO */
+html, body {
+  width: 100%;
+  min-height: 100vh;
+}
+
 body {
   background: linear-gradient(135deg, #081c15 0%, #1b4332 100%);
   color: var(--text-main);
   padding-bottom: 30px;
-  min-height: 100vh;
+  display: flex !important;
+  flex-direction: column !important; /* FORÇA CABEÇALHO EM CIMA E CONTEÚDO EM BAIXO */
+  align-items: center;
 }
 
-/* ================= HEADER & HERO CENTRALIZADO ================= */
+/* ================= HEADER & HERO (TOPO FIXO E TOTAL) ================= */
 .hero-header {
   background: var(--surface-glass);
   backdrop-filter: blur(12px);
@@ -49,17 +57,18 @@ body {
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 16px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.25);
-  width: 100%;
+  width: 100% !important; /* GARANTE QUE OCUPA DE PONTA A PONTA */
+  box-sizing: border-box;
 }
 
 .hero-container {
   max-width: 1200px;
   margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 16px;
 }
 
 .brand-section { 
@@ -68,75 +77,16 @@ body {
   gap: 14px; 
 }
 
-/* WIDGETS CENTRALIZADOS NO CABEÇALHO */
-.header-widgets {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.status-pills {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pill-online {
-  background: rgba(255, 255, 255, 0.85);
-  color: #1b3b22;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-}
-
-.btn-pill {
-  background: #2d6a4f;
-  color: #ffffff;
-  border: 1px solid var(--border-glass);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-pill:hover {
-  background: #52b788;
-  color: #081c15;
-}
-
-.weather-card {
-  background: rgba(0, 0, 0, 0.25); 
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-glass); 
-  padding: 8px 14px; 
-  border-radius: 12px;
-  display: flex; 
-  align-items: center; 
-  gap: 10px; 
-  font-size: 0.8rem;
-  color: #ffffff;
-}
-
-.weather-temp { 
-  font-size: 1.3rem; 
-  font-weight: 800; 
-  color: #ffffff; 
-}
-
-/* GARANTIA DE TAMANHO DA LOGO */
+/* TRAVA DEFINITIVA DE TAMANHO DA LOGO */
 .brand-logo-container,
-.brand-logo {
+.brand-logo,
+header .brand-logo {
   width: 56px !important; 
   height: 56px !important; 
   min-width: 56px !important;
   min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
   border-radius: 50% !important; 
   display: flex !important; 
   align-items: center !important; 
@@ -148,13 +98,16 @@ body {
   border: 2.5px solid #d4af37;
   overflow: hidden !important;
   padding: 0 !important;
+  position: relative !important;
 }
 
-.brand-logo img { 
+.brand-logo img,
+header .brand-logo img { 
   width: 100% !important; 
   height: 100% !important; 
   object-fit: cover !important; 
   border-radius: 50% !important;
+  display: block !important;
 }
 
 .brand-info h1 { 
@@ -193,28 +146,76 @@ body {
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* WIDGETS CENTRALIZADOS NO CABEÇALHO */
+.header-widgets {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.status-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pill-online {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1b3b22;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-pill {
+  background: #2d6a4f;
+  color: #ffffff;
+  border: 1px solid var(--border-glass);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-pill:hover {
+  background: #52b788;
+  color: #081c15;
+}
+
 .weather-card {
-  background: rgba(255, 255, 255, 0.12); 
+  background: rgba(0, 0, 0, 0.25); 
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2); 
+  border: 1px solid var(--border-glass); 
   padding: 6px 12px; 
   border-radius: 12px;
   display: flex; 
   align-items: center; 
   gap: 10px; 
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  color: #ffffff;
 }
 
 .weather-temp { 
   font-size: 1.2rem; 
-  font-weight: bold; 
-  color: var(--text-main); 
+  font-weight: 800; 
+  color: #ffffff; 
 }
 
-.container {
-  padding: 15px;
-  max-width: 900px;
+/* ================= CONTAINER PRINCIPAL DA APLICAÇÃO ================= */
+.container,
+.main-container {
+  padding: 20px 15px;
+  width: 100%;
+  max-width: 1000px;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 /* ================= DASHBOARD (CARDS DE RESUMO) ================= */
@@ -243,7 +244,6 @@ body {
   background: rgba(255, 255, 255, 0.18);
 }
 
-/* CORREÇÃO DO TEXTO INVISÍVEL AO SELECIONAR CARD */
 .card.ativo {
   background-color: var(--accent) !important;
   border: 2px solid #ffffff !important;
@@ -252,7 +252,7 @@ body {
 
 .card.ativo .num,
 .card.ativo .label {
-  color: #081c15 !important; /* Cor escura de alto contraste */
+  color: #081c15 !important;
   font-weight: 800;
 }
 
@@ -328,7 +328,7 @@ body {
 
 .btn-primary {
   background-color: var(--accent);
-  color: #081c15; /* Contraste forte com o verde claro */
+  color: #081c15;
   border: none;
   padding: 12px 20px;
   border-radius: 10px;
@@ -369,11 +369,26 @@ body {
   font-weight: 500;
 }
 
-.service-priority {
-  font-size: 0.85rem;
-  color: #ffffff;
-  font-weight: 600;
+.service-priority, 
+.prioridade-label {
+  color: #333333 !important;
+  font-weight: 600 !important;
   opacity: 1 !important;
+  font-size: 0.85rem !important;
+}
+
+/* Prioridades */
+.prioridade-alta, span.prioridade-alta, .service-priority.alta, [data-prioridade="Alta"] {
+  color: #b71c1c !important;
+  font-weight: 800 !important;
+}
+.prioridade-normal, span.prioridade-normal, .service-priority.normal, [data-prioridade="Normal"] {
+  color: #1b5e20 !important;
+  font-weight: 800 !important;
+}
+.prioridade-baixa, span.prioridade-baixa, .service-priority.baixa, [data-prioridade="Baixa"] {
+  color: #0d47a1 !important;
+  font-weight: 800 !important;
 }
 
 .empty-msg {
@@ -417,7 +432,7 @@ body {
 }
 
 .modal-content {
-  background: #102a1e; /* Verde sólido escuro para perfeita legibilidade */
+  background: #102a1e;
   border: 1px solid var(--border-glass);
   border-radius: 18px;
   width: 100%;
@@ -541,183 +556,4 @@ body {
   max-width: 95%; 
   max-height: 90vh; 
   border-radius: 8px; 
-}
-
-/* ================= CORREÇÃO DE PRIORIDADE EM CARDS COM FUNDO BRANCO ================= */
-
-/* Cor do rótulo "Prioridade:" */
-.service-priority, 
-.prioridade-label {
-  color: #333333 !important;
-  font-weight: 600 !important;
-  opacity: 1 !important;
-  font-size: 0.85rem !important;
-}
-
-/* Prioridade ALTA - Vermelho Escuro e Forte */
-.prioridade-alta,
-span.prioridade-alta,
-.service-priority.alta,
-.service-priority span,
-[data-prioridade="Alta"] {
-  color: #b71c1c !important; /* Vermelho forte / escuro de alto contraste */
-  font-weight: 800 !important;
-  opacity: 1 !important;
-}
-
-/* Prioridade NORMAL - Verde Escuro */
-.prioridade-normal,
-span.prioridade-normal,
-.service-priority.normal,
-[data-prioridade="Normal"] {
-  color: #1b5e20 !important;
-  font-weight: 800 !important;
-  opacity: 1 !important;
-}
-
-/* Prioridade BAIXA - Azul Escuro */
-.prioridade-baixa,
-span.prioridade-baixa,
-.service-priority.baixa,
-[data-prioridade="Baixa"] {
-  color: #0d47a1 !important;
-  font-weight: 800 !important;
-  opacity: 1 !important;
-}
-/* TRAVA DEFINITIVA DE TAMANHO DA LOGO DO CABEÇALHO */
-header .brand-logo-container,
-header .brand-logo {
-  width: 56px !important;
-  height: 56px !important;
-  min-width: 56px !important;
-  min-height: 56px !important;
-  max-width: 56px !important;
-  max-height: 56px !important;
-  border-radius: 50% !important;
-  overflow: hidden !important;
-  position: relative !important;
-}
-
-header .brand-logo img {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 56px !important;
-  max-height: 56px !important;
-  object-fit: cover !important;
-  border-radius: 50% !important;
-  display: block !important;
-}
-/* ALINHAMENTO DO CABEÇALHO E WIDGETS */
-.hero-header {
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border-glass);
-  padding: 16px 24px;
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 16px;
-  width: 100%;
-}
-
-.hero-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.brand-section { 
-  display: flex; 
-  align-items: center; 
-  gap: 14px; 
-}
-
-.header-widgets {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.status-pills {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pill-online {
-  background: rgba(255, 255, 255, 0.9);
-  color: #1b3b22;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-}
-
-.btn-pill {
-  background: #2d6a4f;
-  color: #ffffff;
-  border: 1px solid var(--border-glass);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-pill:hover {
-  background: #52b788;
-  color: #081c15;
-}
-
-.weather-card {
-  background: rgba(0, 0, 0, 0.25); 
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-glass); 
-  padding: 6px 12px; 
-  border-radius: 12px;
-  display: flex; 
-  align-items: center; 
-  gap: 10px; 
-  font-size: 0.8rem;
-  color: #ffffff;
-}
-
-.weather-temp { 
-  font-size: 1.2rem; 
-  font-weight: 800; 
-  color: #ffffff; 
-}
-
-/* FIXAÇÃO E TAMANHO DA LOGO */
-.brand-logo-container,
-.brand-logo {
-  width: 56px !important; 
-  height: 56px !important; 
-  min-width: 56px !important;
-  min-height: 56px !important;
-  border-radius: 50% !important; 
-  display: flex !important; 
-  align-items: center !important; 
-  justify-content: center !important;
-  background: #ffffff; 
-  color: #1b3b22;
-  font-weight: bold; 
-  font-size: 1.3rem; 
-  border: 2.5px solid #d4af37;
-  overflow: hidden !important;
-  padding: 0 !important;
-}
-
-.brand-logo img { 
-  width: 100% !important; 
-  height: 100% !important; 
-  object-fit: cover !important; 
-  border-radius: 50% !important;
 }
