@@ -38,6 +38,7 @@ let perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
 document.addEventListener('DOMContentLoaded', () => {
   carregarDadosFazendaNaTela();
   verificarServicosAtrasados(); 
+  atualizarDashboard(); // Atualiza a contagem dos cards com base no estado atual
   renderizarServicos();
   
   if (!localStorage.getItem('dadosFazenda')) {
@@ -45,7 +46,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   buscarClimaBelem();
-  atualizarDashboard();
   filtrarServicos();
 
   if (typeof atualizarStatusConexao === 'function') atualizarStatusConexao();
@@ -290,9 +290,12 @@ function verificarServicosAtrasados() {
   });
 }
 
+function normalizarTexto(txt) {
+  return (txt || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 function atualizarDashboard() {
   const servicos = carregarServicos();
-  const total = servicos.length;
 
   let pendentes = 0;
   let agendados = 0;
@@ -300,17 +303,23 @@ function atualizarDashboard() {
   let concluidos = 0;
 
   servicos.forEach(s => {
-    const st = (s.status || '').toLowerCase().trim();
-    if (st === 'pendente') pendentes++;
-    else if (st === 'agendado') agendados++;
-    else if (st === 'em execução' || st === 'em execucao') emExecucao++;
-    else if (st === 'concluído' || st === 'concluido') concluidos++;
+    const st = normalizarTexto(s.status);
+
+    if (st === 'agendado' || st === 'agendados') {
+      agendados++;
+    } else if (st === 'pendente' || st === 'pendentes') {
+      pendentes++;
+    } else if (st === 'em execucao' || st === 'execucao' || st === 'em andamento') {
+      emExecucao++;
+    } else if (st === 'concluido' || st === 'concluidos') {
+      concluidos++;
+    }
   });
 
-  const elemAg = document.getElementById('qtd-agendados');
-  const elemPe = document.getElementById('qtd-pendentes');
-  const elemEx = document.getElementById('qtd-execucao');
-  const elemCo = document.getElementById('qtd-concluidos');
+  const elemAg = document.getElementById('qtd-agendados') || document.getElementById('count-agendados');
+  const elemPe = document.getElementById('qtd-pendentes') || document.getElementById('count-pendentes');
+  const elemEx = document.getElementById('qtd-execucao') || document.getElementById('count-execucao');
+  const elemCo = document.getElementById('qtd-concluidos') || document.getElementById('count-concluidos');
 
   if (elemAg) elemAg.innerText = agendados;
   if (elemPe) elemPe.innerText = pendentes;
@@ -392,10 +401,16 @@ function filtrarPorStatus(status) {
 }
 
 function atualizarEstiloCards() {
-  if (document.getElementById('card-agendados')) document.getElementById('card-agendados').classList.toggle('ativo', filtroStatusAtual === 'Agendado');
-  if (document.getElementById('card-pendentes')) document.getElementById('card-pendentes').classList.toggle('ativo', filtroStatusAtual === 'Pendente');
-  if (document.getElementById('card-execucao')) document.getElementById('card-execucao').classList.toggle('ativo', filtroStatusAtual === 'Em execução');
-  if (document.getElementById('card-concluidos')) document.getElementById('card-concluidos').classList.toggle('ativo', filtroStatusAtual === 'Concluído');
+  const filtroNorm = normalizarTexto(filtroStatusAtual);
+
+  if (document.getElementById('card-agendados')) 
+    document.getElementById('card-agendados').classList.toggle('ativo', filtroNorm === 'agendado');
+  if (document.getElementById('card-pendentes')) 
+    document.getElementById('card-pendentes').classList.toggle('ativo', filtroNorm === 'pendente');
+  if (document.getElementById('card-execucao')) 
+    document.getElementById('card-execucao').classList.toggle('ativo', filtroNorm === 'em execucao');
+  if (document.getElementById('card-concluidos')) 
+    document.getElementById('card-concluidos').classList.toggle('ativo', filtroNorm === 'concluido');
 
   const titulo = document.getElementById('titulo-lista');
   if (titulo) {
@@ -405,18 +420,19 @@ function atualizarEstiloCards() {
 
 function filtrarServicos() {
   const termoInput = document.getElementById('search-input');
-  const termo = termoInput ? termoInput.value.toLowerCase() : '';
+  const termo = termoInput ? normalizarTexto(termoInput.value) : '';
   let servicos = carregarServicos();
 
   if (filtroStatusAtual) {
-    servicos = servicos.filter(s => s.status === filtroStatusAtual);
+    const filtroNorm = normalizarTexto(filtroStatusAtual);
+    servicos = servicos.filter(s => normalizarTexto(s.status) === filtroNorm);
   }
 
   if (termo) {
     servicos = servicos.filter(s =>
-      (s.nome && s.nome.toLowerCase().includes(termo)) ||
-      (s.local && s.local.toLowerCase().includes(termo)) ||
-      (s.responsavel && s.responsavel.toLowerCase().includes(termo))
+      normalizarTexto(s.nome).includes(termo) ||
+      normalizarTexto(s.local).includes(termo) ||
+      normalizarTexto(s.responsavel).includes(termo)
     );
   }
 
@@ -444,13 +460,13 @@ function renderizarServicos(servicos) {
     const jaIniciouAlgo = historico.length > 0;
     const rotuloIniciar = jaIniciouAlgo ? '▶️ Retomar' : '🚀 Iniciar';
 
-    const statusAtual = (s.status || '').toString().toLowerCase().trim();
-    const isConcluido = statusAtual === 'concluído' || statusAtual === 'concluido';
+    const statusNorm = normalizarTexto(s.status);
+    const isConcluido = statusNorm === 'concluido';
 
     const hojeStr = new Date().toISOString().split('T')[0];
     const emAtraso = (!isConcluido) && (
       s.isAtrasado || 
-      ((statusAtual === 'agendado' || statusAtual === 'pendente') && (
+      ((statusNorm === 'agendado' || statusNorm === 'pendente') && (
         (typeof verificarAtrasoAgendamento === 'function' && verificarAtrasoAgendamento(s.agendamento || s.dataAgendada)) ||
         (s.dataAgendada && s.dataAgendada < hojeStr)
       ))
@@ -470,10 +486,10 @@ function renderizarServicos(servicos) {
         `;
       }
     } else {
-      if (statusAtual === 'pendente' || statusAtual === 'agendado') {
+      if (statusNorm === 'pendente' || statusNorm === 'agendado') {
         acoesHTML += `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; background: #2e5a3c; color: white; border: none; border-radius: 6px; cursor: pointer;">${rotuloIniciar}</button>`;
       }
-      if (statusAtual === 'em execução' || statusAtual === 'em execucao') {
+      if (statusNorm === 'em execucao' || statusNorm === 'em andamento') {
         acoesHTML += `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer;">⏸️ Pausar</button>`;
       }
       acoesHTML += `<button onclick="solicitarConclusaoServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>`;
@@ -488,7 +504,7 @@ function renderizarServicos(servicos) {
     <div class="service-card" style="background: #fff; padding: 14px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
       <div class="service-main" style="display: flex; justify-content: space-between; align-items: center;">
         <h4 style="margin: 0; color: #1b3b22;">${(s.nome || 'Serviço').toUpperCase()}</h4>
-        <span class="badge ${(s.status || '').toLowerCase().replace(' ', '-').replace('ú', 'u')}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${s.status}</span>
+        <span class="badge ${statusNorm.replace(/\s+/g, '-')}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${s.status}</span>
       </div>
       <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data || s.dataCriacao || 'N/A'}</p>
       <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0;">Prioridade: <strong>${s.prioridade || 'Normal'}</strong></p>
@@ -835,24 +851,12 @@ function renderizarPreviewFotosEdicao() {
   preview.innerHTML = '';
   imagensTempConclusao.forEach((imgSrc, index) => {
     const div = document.createElement('div');
-    div.style.cssText = 'position: relative; display: inline-block;';
+    div.style.cssText = 'position: relative; display: inline-block; margin: 4px;';
     div.innerHTML = `
       <img src="${imgSrc}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc;">
-      <button type="button" onclick="removerFotoEdicao(${index})" style="position: absolute; top: -5px; right: -5px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer;">✕</button>
+      <button onclick="removerFotoEdicao(${index})" style="position: absolute; top: -5px; right: -5px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer;">✕</button>
     `;
     preview.appendChild(div);
-  });
-}
-
-function carregarNovasImagensEdicao(event) {
-  const files = Array.from(event.target.files);
-  if (files.length === 0) return;
-
-  files.forEach(file => {
-    comprimirImagem(file, 1000, 1000, 0.8, function(base64Otimizado) {
-      imagensTempConclusao.push(base64Otimizado);
-      renderizarPreviewFotosEdicao();
-    });
   });
 }
 
@@ -862,230 +866,16 @@ function removerFotoEdicao(index) {
 }
 
 function confirmarEdicaoConclusao(event) {
-  event.preventDefault();
-  const relatorio = document.getElementById('relatorio-conclusao-editar').value.trim();
+  if (event) event.preventDefault();
+  const campoText = document.getElementById('relatorio-conclusao-editar');
+  const textoAtualizado = campoText ? campoText.value.trim() : '';
 
   let servicos = carregarServicos();
   const item = servicos.find(s => Number(s.id) === Number(servicoEdicaoConclusaoId));
   if (item) {
-    item.conclusaoInfo = relatorio;
+    item.conclusaoInfo = textoAtualizado;
     item.fotos = imagensTempConclusao;
     salvarServicos(servicos);
   }
   fecharModalEditarConclusao();
-}
-
-/* ==========================================================================
-   VISUALIZAÇÃO DE IMAGENS E RELATÓRIOS (WHATSAPP / RESUMO)
-   ========================================================================== */
-function ampliarImagem(src) {
-  const modal = document.createElement('div');
-  modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px; box-sizing: border-box;';
-  modal.innerHTML = `
-    <div style="position: relative; max-width: 90%; max-height: 90%;">
-      <img src="${src}" style="max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
-      <button onclick="this.parentElement.parentElement.remove()" style="position: absolute; top: -10px; right: -10px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; cursor: pointer; font-size: 16px;">✕</button>
-    </div>
-  `;
-  document.body.appendChild(modal);
-}
-
-function abrirRelatorioCompleto(id) {
-  const servicos = carregarServicos();
-  const s = servicos.find(item => Number(item.id) === Number(id));
-  if (!s) return;
-
-  const modal = document.createElement('div');
-  modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 15px; box-sizing: border-box;';
-  
-  modal.innerHTML = `
-    <div style="background: white; border-radius: 12px; padding: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.2);">
-      <h3 style="margin-top: 0; color: #1b3b22; border-bottom: 2px solid #2e5a3c; padding-bottom: 8px;">📋 RELATÓRIO DE SERVIÇO</h3>
-      <p><strong>Serviço:</strong> ${s.nome}</p>
-      <p><strong>Local:</strong> ${s.local}</p>
-      <p><strong>Responsável:</strong> ${s.responsavel}</p>
-      <p><strong>Prioridade:</strong> ${s.prioridade || 'Normal'}</p>
-      <p><strong>Data de Criação:</strong> ${s.data || 'N/A'}</p>
-      ${s.observacoes ? `<p><strong>Observações:</strong> ${s.observacoes}</p>` : ''}
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 12px 0;">
-      <p><strong>Relatório de Conclusão:</strong></p>
-      <div style="background: #f8fafc; padding: 10px; border-radius: 6px; border-left: 4px solid #27ae60; font-size: 0.9rem;">${s.conclusaoInfo || 'Sem descrição.'}</div>
-      ${s.fotos && s.fotos.length > 0 ? `
-        <p style="margin-top: 12px;"><strong>Fotos Registradas:</strong></p>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          ${s.fotos.map(f => `<img src="${f}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; cursor: pointer;" onclick="ampliarImagem('${f}')">`).join('')}
-        </div>
-      ` : ''}
-      <div style="margin-top: 20px; text-align: right;">
-        <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Fechar</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-}
-
-function enviarRelatorioWhatsApp(id) {
-  const servicos = carregarServicos();
-  const s = servicos.find(item => Number(item.id) === Number(id));
-  if (!s) return;
-
-  let texto = `*${dadosFazenda.nome || 'CRIATÓRIO MARQUES'}*\n`;
-  texto += `*Relatório de Serviço Concluído*\n\n`;
-  texto += `📌 *Serviço:* ${s.nome}\n`;
-  texto += `📍 *Local:* ${s.local}\n`;
-  texto += `👤 *Responsável:* ${s.responsavel}\n`;
-  texto += `📅 *Data:* ${s.data || 'N/A'}\n\n`;
-  texto += `📝 *Relatório de Execução:*\n${s.conclusaoInfo || 'Atividade finalizada com sucesso.'}\n`;
-
-  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
-  window.open(url, '_blank');
-}
-
-/* ==========================================================================
-   CONFIGURAÇÕES DA FAZENDA E LOGO
-   ========================================================================== */
-function abrirModalPerfilFazenda(primeiraVez = false) {
-  const modal = document.getElementById('modal-perfil-fazenda');
-  if (!modal) return;
-
-  document.getElementById('input-nome-fazenda').value = dadosFazenda.nome || '';
-  document.getElementById('input-slogan-fazenda').value = dadosFazenda.slogan || '';
-  document.getElementById('input-cidade-fazenda').value = dadosFazenda.cidade || '';
-
-  const preview = document.getElementById('preview-logo-fazenda');
-  if (preview && dadosFazenda.logoBase64) {
-    preview.src = dadosFazenda.logoBase64;
-    preview.style.display = 'block';
-  } else if (preview) {
-    preview.style.display = 'none';
-  }
-
-  modal.style.display = 'flex';
-}
-
-function abrirModalPerfilFazenda(primeiraVez = false) {
-  const modal = document.getElementById('modal-perfil-fazenda');
-  if (!modal) return;
-
-  // Carrega os dados salvos nos inputs
-  document.getElementById('input-nome-fazenda').value = dadosFazenda.nome || '';
-  document.getElementById('input-slogan-fazenda').value = dadosFazenda.slogan || '';
-  document.getElementById('input-cidade-fazenda').value = dadosFazenda.cidade || '';
-
-  // Reseta a variável temporária com a logo atual salva
-  logoTempBase64 = dadosFazenda.logoBase64 || '';
-
-  const preview = document.getElementById('preview-logo-fazenda');
-  if (preview) {
-    if (dadosFazenda.logoBase64) {
-      preview.src = dadosFazenda.logoBase64;
-      preview.style.display = 'block';
-    } else {
-      preview.style.display = 'none';
-      preview.src = '';
-    }
-  }
-
-  modal.style.display = 'flex';
-}
-
-function fecharModalPerfilFazenda() {
-  const modal = document.getElementById('modal-perfil-fazenda');
-  if (modal) modal.style.display = 'none';
-  logoTempBase64 = ''; // Limpa a temporária ao fechar
-}
-
-function carregarLogoFazenda(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  comprimirImagem(file, 400, 400, 0.85, function(base64) {
-    logoTempBase64 = base64;
-    const preview = document.getElementById('preview-logo-fazenda');
-    if (preview) {
-      preview.src = base64;
-      preview.style.display = 'block';
-    }
-  });
-}
-
-function salvarPerfilFazenda(event) {
-  if (event) event.preventDefault();
-  
-  // Captura os dados dos campos do modal
-  dadosFazenda = {
-    nome: document.getElementById('input-nome-fazenda').value.trim() || 'CRIATÓRIO MARQUES',
-    slogan: document.getElementById('input-slogan-fazenda').value.trim(),
-    cidade: document.getElementById('input-cidade-fazenda').value.trim(),
-    logoBase64: logoTempBase64 || dadosFazenda.logoBase64 || ''
-  };
-
-  // Guarda os dados atualizados no armazenamento local
-  localStorage.setItem('dadosFazenda', JSON.stringify(dadosFazenda));
-  
-  // Atualiza a interface
-  carregarDadosFazendaNaTela();
-  fecharModalPerfilFazenda();
-}
-
-function carregarDadosFazendaNaTela() {
-  try {
-    const salvos = localStorage.getItem('dadosFazenda');
-    if (salvos) dadosFazenda = JSON.parse(salvos);
-  } catch(e) {}
-
-  const titulo = document.getElementById('header-nome-fazenda');
-  const slogan = document.getElementById('header-slogan');
-  const logoContainer = document.getElementById('header-logo');
-
-  if (titulo) titulo.innerText = dadosFazenda.nome || 'CRIATÓRIO MARQUES';
-  if (slogan) slogan.innerText = dadosFazenda.slogan ? `"${dadosFazenda.slogan}"` : '"Excelência em Genética e Manejo no Sertão"';
-  
-  if (logoContainer) {
-    if (dadosFazenda.logoBase64 && dadosFazenda.logoBase64.startsWith('data:image')) {
-      // Injeta a imagem com inline styles forçados em pixels
-      logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo" style="width: 56px !important; height: 56px !important; max-width: 56px !important; max-height: 56px !important; object-fit: cover !important; border-radius: 50% !important; display: block !important;">`;
-    } else {
-      logoContainer.innerHTML = 'CM';
-    }
-  }
-}
-/* ==========================================================================
-   BACKUP E IMPORTAÇÃO DE DADOS
-   ========================================================================== */
-function fazerBackup() {
-  const dados = {
-    servicos: carregarServicos(),
-    areas: carregarAreas(),
-    fazenda: dadosFazenda
-  };
-
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dados));
-  const downloadAnchor = document.createElement('a');
-  downloadAnchor.setAttribute("href", dataStr);
-  downloadAnchor.setAttribute("download", `backup_criatorio_marques_${new Date().toISOString().split('T')[0]}.json`);
-  document.body.appendChild(downloadAnchor);
-  downloadAnchor.click();
-  downloadAnchor.remove();
-}
-
-function importarBackup(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const dados = JSON.parse(e.target.result);
-      if (dados.servicos) localStorage.setItem(STORAGE_KEY, JSON.stringify(dados.servicos));
-      if (dados.areas) localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(dados.areas));
-      if (dados.fazenda) localStorage.setItem('dadosFazenda', JSON.stringify(dados.fazenda));
-
-      alert("Dados importados com sucesso!");
-      location.reload();
-    } catch (err) {
-      alert("Erro ao ler o arquivo de backup. Verifique se o arquivo JSON é válido.");
-    }
-  };
-  reader.readAsText(file);
 }
