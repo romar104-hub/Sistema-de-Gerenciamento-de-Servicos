@@ -517,3 +517,26 @@ span.prioridade-baixa,
   font-weight: 800 !important;
   opacity: 1 !important;
 }
+/* TRAVA DEFINITIVA DE TAMANHO DA LOGO DO CABEÇALHO */
+header .brand-logo-container,
+header .brand-logo {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+header .brand-logo img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  display: block !important;
+}
