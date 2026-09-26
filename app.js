@@ -38,7 +38,7 @@ let perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
 document.addEventListener('DOMContentLoaded', () => {
   carregarDadosFazendaNaTela();
   verificarServicosAtrasados(); 
-  atualizarDashboard(); // Atualiza a contagem dos cards com base no estado atual
+  atualizarDashboard(); // Força a atualização da contagem no topo
   renderizarServicos();
   
   if (!localStorage.getItem('dadosFazenda')) {
@@ -58,12 +58,24 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ==========================================================================
+   FUNÇÃO DE NORMALIZAÇÃO DE STATUS (RESOLVE O PROBLEMA DOS CONTADORES)
+   ========================================================================== */
+function normalizarStatus(status) {
+  if (!status) return '';
+  return String(status)
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // Remove acentos de "CONCLUÍDO" -> "concluido"
+}
+
+/* ==========================================================================
    SISTEMA DE AUTENTICAÇÃO E PERFIL
    ========================================================================== */
 function solicitarAcessoAdmin() {
   if (perfilAtual === 'usuario') {
     const senha = prompt("Digite a senha de Administrador:");
-    if (senha === "1234") { // Altere '1234' para a senha de sua preferência
+    if (senha === "1234") { 
       perfilAtual = 'admin';
       localStorage.setItem('perfil_usuario', 'admin');
       alert("Modo Administrador ativado!");
@@ -94,7 +106,6 @@ async function buscarClimaBelem() {
   const elemDesc = document.getElementById('clima-desc');
   const elemIcon = document.getElementById('weather-icon');
 
-  // Coordenadas de Belém do São Francisco - PE (Lat: -8.7531, Lon: -38.9667)
   const urlApi = 'https://api.open-meteo.com/v1/forecast?latitude=-8.7531&longitude=-38.9667&current_weather=true';
 
   try {
@@ -130,35 +141,16 @@ async function buscarClimaBelem() {
 
 function interpretarCodigoClima(code) {
   switch (code) {
-    case 0:
-      return { texto: 'Céu Limpo', icone: '☀️' };
-    case 1:
-      return { texto: 'Predominantemente Limpo', icone: '🌤️' };
-    case 2:
-      return { texto: 'Parcialmente Nublado', icone: '⛅' };
-    case 3:
-      return { texto: 'Nublado', icone: '☁️' };
-    case 45:
-    case 48:
-      return { texto: 'Névoa / Nevoeiro', icone: '🌫️' };
-    case 51:
-    case 53:
-    case 55:
-      return { texto: 'Garoa Leve', icone: '🌦️' };
-    case 61:
-    case 63:
-    case 65:
-      return { texto: 'Chuva', icone: '🌧️' };
-    case 80:
-    case 81:
-    case 82:
-      return { texto: 'Pancadas de Chuva', icone: '🌦️' };
-    case 95:
-    case 96:
-    case 99:
-      return { texto: 'Trovoadas / Tempestade', icone: '⛈️' };
-    default:
-      return { texto: 'Ensolarado', icone: '☀️' };
+    case 0: return { texto: 'Céu Limpo', icone: '☀️' };
+    case 1: return { texto: 'Predominantemente Limpo', icone: '🌤️' };
+    case 2: return { texto: 'Parcialmente Nublado', icone: '⛅' };
+    case 3: return { texto: 'Nublado', icone: '☁️' };
+    case 45: case 48: return { texto: 'Névoa / Nevoeiro', icone: '🌫️' };
+    case 51: case 53: case 55: return { texto: 'Garoa Leve', icone: '🌦️' };
+    case 61: case 63: case 65: return { texto: 'Chuva', icone: '🌧️' };
+    case 80: case 81: case 82: return { texto: 'Pancadas de Chuva', icone: '🌦️' };
+    case 95: case 96: case 99: return { texto: 'Trovoadas / Tempestade', icone: '⛈️' };
+    default: return { texto: 'Ensolarado', icone: '☀️' };
   }
 }
 
@@ -280,18 +272,14 @@ function verificarServicosAtrasados() {
   const lista = carregarServicos();
 
   lista.forEach(s => {
-    const statusAtual = (s.status || '').toLowerCase().trim();
+    const st = normalizarStatus(s.status);
     const dataAgendada = s.dataAgendada || s.agendamento;
-    if ((statusAtual === 'agendado' || statusAtual === 'pendente') && dataAgendada && dataAgendada < hojeStr) {
+    if ((st === 'agendado' || st === 'pendente') && dataAgendada && dataAgendada < hojeStr) {
       s.isAtrasado = true;
     } else {
       s.isAtrasado = false;
     }
   });
-}
-
-function normalizarTexto(txt) {
-  return (txt || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 function atualizarDashboard() {
@@ -303,15 +291,15 @@ function atualizarDashboard() {
   let concluidos = 0;
 
   servicos.forEach(s => {
-    const st = normalizarTexto(s.status);
+    const st = normalizarStatus(s.status);
 
-    if (st === 'agendado' || st === 'agendados') {
+    if (st.includes('agendad')) {
       agendados++;
-    } else if (st === 'pendente' || st === 'pendentes') {
+    } else if (st.includes('pendent')) {
       pendentes++;
-    } else if (st === 'em execucao' || st === 'execucao' || st === 'em andamento') {
+    } else if (st.includes('execuc') || st.includes('andament')) {
       emExecucao++;
-    } else if (st === 'concluido' || st === 'concluidos') {
+    } else if (st.includes('conclu')) {
       concluidos++;
     }
   });
@@ -401,16 +389,16 @@ function filtrarPorStatus(status) {
 }
 
 function atualizarEstiloCards() {
-  const filtroNorm = normalizarTexto(filtroStatusAtual);
+  const filtroNorm = normalizarStatus(filtroStatusAtual);
 
   if (document.getElementById('card-agendados')) 
-    document.getElementById('card-agendados').classList.toggle('ativo', filtroNorm === 'agendado');
+    document.getElementById('card-agendados').classList.toggle('ativo', filtroNorm.includes('agendad'));
   if (document.getElementById('card-pendentes')) 
-    document.getElementById('card-pendentes').classList.toggle('ativo', filtroNorm === 'pendente');
+    document.getElementById('card-pendentes').classList.toggle('ativo', filtroNorm.includes('pendent'));
   if (document.getElementById('card-execucao')) 
-    document.getElementById('card-execucao').classList.toggle('ativo', filtroNorm === 'em execucao');
+    document.getElementById('card-execucao').classList.toggle('ativo', filtroNorm.includes('execuc') || filtroNorm.includes('andament'));
   if (document.getElementById('card-concluidos')) 
-    document.getElementById('card-concluidos').classList.toggle('ativo', filtroNorm === 'concluido');
+    document.getElementById('card-concluidos').classList.toggle('ativo', filtroNorm.includes('conclu'));
 
   const titulo = document.getElementById('titulo-lista');
   if (titulo) {
@@ -420,19 +408,19 @@ function atualizarEstiloCards() {
 
 function filtrarServicos() {
   const termoInput = document.getElementById('search-input');
-  const termo = termoInput ? normalizarTexto(termoInput.value) : '';
+  const termo = termoInput ? normalizarStatus(termoInput.value) : '';
   let servicos = carregarServicos();
 
   if (filtroStatusAtual) {
-    const filtroNorm = normalizarTexto(filtroStatusAtual);
-    servicos = servicos.filter(s => normalizarTexto(s.status) === filtroNorm);
+    const filtroNorm = normalizarStatus(filtroStatusAtual);
+    servicos = servicos.filter(s => normalizarStatus(s.status).includes(filtroNorm.slice(0, 5)));
   }
 
   if (termo) {
     servicos = servicos.filter(s =>
-      normalizarTexto(s.nome).includes(termo) ||
-      normalizarTexto(s.local).includes(termo) ||
-      normalizarTexto(s.responsavel).includes(termo)
+      normalizarStatus(s.nome).includes(termo) ||
+      normalizarStatus(s.local).includes(termo) ||
+      normalizarStatus(s.responsavel).includes(termo)
     );
   }
 
@@ -460,13 +448,13 @@ function renderizarServicos(servicos) {
     const jaIniciouAlgo = historico.length > 0;
     const rotuloIniciar = jaIniciouAlgo ? '▶️ Retomar' : '🚀 Iniciar';
 
-    const statusNorm = normalizarTexto(s.status);
-    const isConcluido = statusNorm === 'concluido';
+    const statusNorm = normalizarStatus(s.status);
+    const isConcluido = statusNorm.includes('conclu');
 
     const hojeStr = new Date().toISOString().split('T')[0];
     const emAtraso = (!isConcluido) && (
       s.isAtrasado || 
-      ((statusNorm === 'agendado' || statusNorm === 'pendente') && (
+      ((statusNorm.includes('agendad') || statusNorm.includes('pendent')) && (
         (typeof verificarAtrasoAgendamento === 'function' && verificarAtrasoAgendamento(s.agendamento || s.dataAgendada)) ||
         (s.dataAgendada && s.dataAgendada < hojeStr)
       ))
@@ -486,10 +474,10 @@ function renderizarServicos(servicos) {
         `;
       }
     } else {
-      if (statusNorm === 'pendente' || statusNorm === 'agendado') {
+      if (statusNorm.includes('pendent') || statusNorm.includes('agendad')) {
         acoesHTML += `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; background: #2e5a3c; color: white; border: none; border-radius: 6px; cursor: pointer;">${rotuloIniciar}</button>`;
       }
-      if (statusNorm === 'em execucao' || statusNorm === 'em andamento') {
+      if (statusNorm.includes('execuc') || statusNorm.includes('andament')) {
         acoesHTML += `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer;">⏸️ Pausar</button>`;
       }
       acoesHTML += `<button onclick="solicitarConclusaoServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>`;
