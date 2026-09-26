@@ -60,15 +60,102 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ==========================================================================
    FUNÇÃO DE NORMALIZAÇÃO DE STATUS (RESOLVE O PROBLEMA DOS CONTADORES)
    ========================================================================== */
+/* ==========================================================================
+   CRIATÓRIO MARQUES - CORREÇÃO DE FILTROS E RENDERIZAÇÃO
+   ========================================================================== */
+
+// Função de normalização segura
 function normalizarStatus(status) {
   if (!status) return '';
   return String(status)
     .toLowerCase()
     .trim()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, ""); // Remove acentos de "CONCLUÍDO" -> "concluido"
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
+// Atualizar e Contar os Serviços
+function atualizarDashboard() {
+  const servicos = carregarServicos();
+
+  let pendentes = 0;
+  let agendados = 0;
+  let emExecucao = 0;
+  let concluidos = 0;
+
+  servicos.forEach(s => {
+    const st = normalizarStatus(s.status);
+    if (st.includes('agendad')) agendados++;
+    else if (st.includes('pendent')) pendentes++;
+    else if (st.includes('execuc') || st.includes('andament')) emExecucao++;
+    else if (st.includes('conclu')) concluidos++;
+  });
+
+  const elemAg = document.getElementById('qtd-agendados') || document.getElementById('count-agendados');
+  const elemPe = document.getElementById('qtd-pendentes') || document.getElementById('count-pendentes');
+  const elemEx = document.getElementById('qtd-execucao') || document.getElementById('count-execucao');
+  const elemCo = document.getElementById('qtd-concluidos') || document.getElementById('count-concluidos');
+
+  if (elemAg) elemAg.innerText = agendados;
+  if (elemPe) elemPe.innerText = pendentes;
+  if (elemEx) elemEx.innerText = emExecucao;
+  if (elemCo) elemCo.innerText = concluidos;
+}
+
+// Filtragem sem bloquear a lista em branco
+function filtrarPorStatus(status) {
+  // Se clicar no mesmo filtro que já está ativo, limpa o filtro para mostrar TODOS
+  if (normalizarStatus(filtroStatusAtual) === normalizarStatus(status)) {
+    filtroStatusAtual = null;
+  } else {
+    filtroStatusAtual = status;
+  }
+  atualizarEstiloCards();
+  filtrarServicos();
+}
+
+function atualizarEstiloCards() {
+  const filtroNorm = normalizarStatus(filtroStatusAtual);
+
+  const cardAg = document.getElementById('card-agendados');
+  const cardPe = document.getElementById('card-pendentes');
+  const cardEx = document.getElementById('card-execucao');
+  const cardCo = document.getElementById('card-concluidos');
+
+  if (cardAg) cardAg.classList.toggle('ativo', filtroNorm.includes('agendad'));
+  if (cardPe) cardPe.classList.toggle('ativo', filtroNorm.includes('pendent'));
+  if (cardEx) cardEx.classList.toggle('ativo', filtroNorm.includes('execuc') || filtroNorm.includes('andament'));
+  if (cardCo) cardCo.classList.toggle('ativo', filtroNorm.includes('conclu'));
+
+  const titulo = document.getElementById('titulo-lista');
+  if (titulo) {
+    titulo.innerText = filtroStatusAtual ? `Serviços (${filtroStatusAtual})` : 'Todos os Serviços';
+  }
+}
+
+function filtrarServicos() {
+  const termoInput = document.getElementById('search-input');
+  const termo = termoInput ? normalizarStatus(termoInput.value) : '';
+  let servicos = carregarServicos();
+
+  if (filtroStatusAtual) {
+    const filtroNorm = normalizarStatus(filtroStatusAtual);
+    servicos = servicos.filter(s => {
+      const st = normalizarStatus(s.status);
+      return st.includes(filtroNorm.slice(0, 4));
+    });
+  }
+
+  if (termo) {
+    servicos = servicos.filter(s =>
+      normalizarStatus(s.nome).includes(termo) ||
+      normalizarStatus(s.local).includes(termo) ||
+      normalizarStatus(s.responsavel).includes(termo)
+    );
+  }
+
+  renderizarServicos(servicos);
+}
 /* ==========================================================================
    SISTEMA DE AUTENTICAÇÃO E PERFIL
    ========================================================================== */
