@@ -90,42 +90,7 @@
         </div>
       </div>
 
-      <!-- BOTÕES DE AÇÃO, STATUS E CLIMA -->
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        
-        <!-- INDICADOR DE CONECTIVIDADE -->
-        <div id="status-conexao" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">
-          <span id="dot-conexao" style="width: 8px; height: 8px; border-radius: 50%; background: #27ae60;"></span>
-          <span id="texto-conexao">Online</span>
-        </div>
-
-        <!-- BOTÃO DE ÁREAS DA PROPRIEDADE -->
-        <button type="button" onclick="abrirModalAreas()" style="padding: 6px 14px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-          📍 Áreas da Propriedade
-        </button>
-
-        <!-- BOTÃO DE ACESSO PERFIL / ADMIN -->
-        <button id="btn-login-perfil" onclick="solicitarAcessoAdmin()" style="padding: 6px 12px; font-size: 0.8rem; background: #1b3b22; color: white; border: 1px solid #ffffff44; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-          🔑 <span id="label-perfil">Entrar como Admin</span>
-        </button>
-
-        <!-- CLIMA EM TEMPO REAL -->
-        <div class="weather-card" id="weather-box">
-          <div style="font-size: 1.5rem;" id="weather-icon">☀️</div>
-          <div>
-            <div class="weather-temp" id="clima-temp">--°C</div>
-            <div class="weather-details" style="display: flex; flex-direction: column;">
-              <span id="clima-desc" style="font-size: 0.7rem;">Carregando clima...</span>
-              <span class="weather-location" id="header-cidade" style="font-size: 0.7rem;">📍 Belém do São Francisco - PE</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-  </header>
-
+     
   <!-- CONTEÚDO PRINCIPAL DA APLICAÇÃO -->
   <main class="container">
     <!-- DASHBOARD COM 4 CARDS -->
