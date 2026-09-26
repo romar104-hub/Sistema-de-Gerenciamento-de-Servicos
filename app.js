@@ -1043,12 +1043,9 @@ function carregarDadosFazendaNaTela() {
   
   if (logoContainer) {
     if (dadosFazenda.logoBase64 && dadosFazenda.logoBase64.startsWith('data:image')) {
-      // Injeta a imagem contida no container com tamanho e recorte perfeitos
-      logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">`;
-      logoContainer.style.padding = '0';
-      logoContainer.style.overflow = 'hidden';
+      // Injeta a imagem com inline styles forçados em pixels
+      logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo" style="width: 56px !important; height: 56px !important; max-width: 56px !important; max-height: 56px !important; object-fit: cover !important; border-radius: 50% !important; display: block !important;">`;
     } else {
-      // Restaura o texto padrão "CM" caso não haja imagem
       logoContainer.innerHTML = 'CM';
     }
   }
