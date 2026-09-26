@@ -607,3 +607,117 @@ header .brand-logo img {
   border-radius: 50% !important;
   display: block !important;
 }
+/* ALINHAMENTO DO CABEÇALHO E WIDGETS */
+.hero-header {
+  background: var(--surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-glass);
+  padding: 16px 24px;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  width: 100%;
+}
+
+.hero-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.brand-section { 
+  display: flex; 
+  align-items: center; 
+  gap: 14px; 
+}
+
+.header-widgets {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.status-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pill-online {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1b3b22;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-pill {
+  background: #2d6a4f;
+  color: #ffffff;
+  border: 1px solid var(--border-glass);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-pill:hover {
+  background: #52b788;
+  color: #081c15;
+}
+
+.weather-card {
+  background: rgba(0, 0, 0, 0.25); 
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-glass); 
+  padding: 6px 12px; 
+  border-radius: 12px;
+  display: flex; 
+  align-items: center; 
+  gap: 10px; 
+  font-size: 0.8rem;
+  color: #ffffff;
+}
+
+.weather-temp { 
+  font-size: 1.2rem; 
+  font-weight: 800; 
+  color: #ffffff; 
+}
+
+/* FIXAÇÃO E TAMANHO DA LOGO */
+.brand-logo-container,
+.brand-logo {
+  width: 56px !important; 
+  height: 56px !important; 
+  min-width: 56px !important;
+  min-height: 56px !important;
+  border-radius: 50% !important; 
+  display: flex !important; 
+  align-items: center !important; 
+  justify-content: center !important;
+  background: #ffffff; 
+  color: #1b3b22;
+  font-weight: bold; 
+  font-size: 1.3rem; 
+  border: 2.5px solid #d4af37;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+.brand-logo img { 
+  width: 100% !important; 
+  height: 100% !important; 
+  object-fit: cover !important; 
+  border-radius: 50% !important;
+}
