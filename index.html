@@ -85,6 +85,60 @@
 
   </main>
 
+  <!-- MODAL: JUSTIFICATIVA DE PAUSA -->
+  <div id="modal-justificativa" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <h3>⏸️ Justificativa de Pausa</h3>
+      <p>Informe o motivo de pausar o serviço:</p>
+      <textarea id="texto-justificativa" placeholder="Ex: Falta de insumo, chuva no local, pausa para almoço..." rows="4"></textarea>
+      <div class="modal-actions">
+        <button type="button" class="btn-secundario" onclick="fecharModalJustificativa()">Cancelar</button>
+        <button type="button" class="btn-primary" onclick="confirmarPausaServico()">Confirmar Pausa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: REAGENDAMENTO E JUSTIFICATIVA DE ATRASO -->
+  <div id="modal-reagendar" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <h3>🔄 Justificar & Reagendar Serviço</h3>
+      <div class="form-group">
+        <label for="justificativa-atraso">Motivo do Atraso / Reagendamento:</label>
+        <textarea id="justificativa-atraso" placeholder="Informe o motivo pelo qual o serviço atrasou..." rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="nova-data-agendada">Nova Data Prevista:</label>
+        <input type="date" id="nova-data-agendada">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secundario" onclick="fecharModalReagendar()">Cancelar</button>
+        <button type="button" class="btn-primary" onclick="confirmarReagendamento()">Salvar Reagendamento</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONCLUSÃO DE SERVIÇO COM FOTOS -->
+  <div id="modal-conclusao" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <h3>✅ Conclusão de Serviço</h3>
+      <form id="form-conclusao" onsubmit="event.preventDefault(); confirmarConclusaoServico();">
+        <div class="form-group">
+          <label for="obs-conclusao">Observações Finais / Relatório:</label>
+          <textarea id="obs-conclusao" placeholder="Descreva os detalhes da realização do serviço..." rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Anexar Fotografias (Opcional):</label>
+          <input type="file" id="input-fotos-conclusao" accept="image/*" multiple onchange="carregarPreviewFotos(event)">
+          <div id="preview-imagens" class="preview-grid" style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;"></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secundario" onclick="fecharModalConclusao()">Cancelar</button>
+          <button type="submit" class="btn-primary" style="background: #27ae60;">Concluir Serviço</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
