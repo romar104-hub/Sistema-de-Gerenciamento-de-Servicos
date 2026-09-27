@@ -215,6 +215,20 @@ body {
   background: rgba(255, 255, 255, 0.15);
 }
 
+.btn-primary {
+  background: #2e5a3c;
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background: #3b714c;
+}
+
 .btn-novo-servico {
   background: #2ecc71;
   color: #0b1f14;
@@ -241,4 +255,80 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* MODAIS DE OVERLAY */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 15px;
+}
+
+.modal-content {
+  background: #152d1f;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+}
+
+.modal-content h3 {
+  font-size: 1.2rem;
+  margin-bottom: 12px;
+  color: #e2b04c;
+}
+
+.modal-content p {
+  font-size: 0.9rem;
+  color: #cbd5e1;
+  margin-bottom: 15px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  color: #e2e8f0;
+}
+
+.form-group textarea,
+.form-group input[type="text"],
+.form-group input[type="date"] {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 10px;
+  color: #ffffff;
+  font-size: 0.9rem;
+  outline: none;
+  width: 100%;
+}
+
+.form-group textarea:focus,
+.form-group input:focus {
+  border-color: #2ecc71;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }
