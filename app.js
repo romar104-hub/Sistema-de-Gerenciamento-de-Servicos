@@ -1,465 +1,70 @@
 /* ==========================================================================
-   CRIATÓRIO MARQUES - SISTEMA DE GESTÃO DE SERVIÇOS
+   ESTADO GLOBAL E VARIÁVEIS DE CONTROLE
    ========================================================================== */
-
-const STORAGE_KEY = 'criatorio_marques_servicos';
-const STORAGE_KEY_AREAS = 'criatorio_marques_areas';
-
+let filtroStatusAtual = null;
+let perfilAtual = 'admin'; // Defina o perfil conforme a autenticação ('admin' ou 'operador')
 let servicoPendentePausaId = null;
+let servicoReagendarId = null;
 let servicoConclusaoId = null;
 let servicoEdicaoConclusaoId = null;
-let servicoReagendarId = null;
 let imagensTempConclusao = [];
-let fotoTempAreaBase64 = '';
-let filtroStatusAtual = null;
-let logoTempBase64 = '';
-
-// Recupera dados salvos da propriedade ou define o padrão
-let dadosFazenda = {};
-try {
-  dadosFazenda = JSON.parse(localStorage.getItem('dadosFazenda')) || {
-    nome: 'CRIATÓRIO MARQUES',
-    slogan: 'Excelência em Genética e Manejo no Sertão',
-    cidade: 'Belém do São Francisco - PE',
-    logoBase64: ''
-  };
-} catch (e) {
-  dadosFazenda = {
-    nome: 'CRIATÓRIO MARQUES',
-    slogan: 'Excelência em Genética e Manejo no Sertão',
-    cidade: 'Belém do São Francisco - PE',
-    logoBase64: ''
-  };
-}
-
-// Recupera o perfil do usuário (padrão: 'usuario')
-let perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
-
-document.addEventListener('DOMContentLoaded', () => {
-  carregarDadosFazendaNaTela();
-  verificarServicosAtrasados(); 
-  atualizarDashboard(); // Força a atualização da contagem no topo
-  renderizarServicos();
-  
-  if (!localStorage.getItem('dadosFazenda')) {
-    abrirModalPerfilFazenda(true);
-  }
-
-  buscarClimaBelem();
-  filtrarServicos();
-
-  if (typeof atualizarStatusConexao === 'function') atualizarStatusConexao();
-  atualizarLabelPerfil();
-
-  if (typeof atualizarStatusConexao === 'function') {
-    window.addEventListener('online', atualizarStatusConexao);
-    window.addEventListener('offline', atualizarStatusConexao);
-  }
-});
 
 /* ==========================================================================
-   FUNÇÃO DE NORMALIZAÇÃO DE STATUS (RESOLVE O PROBLEMA DOS CONTADORES)
+   FUNÇÕES AUXILIARES E PERSISTÊNCIA
    ========================================================================== */
-/* ==========================================================================
-   CRIATÓRIO MARQUES - CORREÇÃO DE FILTROS E RENDERIZAÇÃO
-   ========================================================================== */
-
-// Função de normalização segura
-function normalizarStatus(status) {
-  if (!status) return '';
-  return String(status)
+function normalizarStatus(texto) {
+  if (!texto) return '';
+  return texto
+    .toString()
     .toLowerCase()
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
-// Atualizar e Contar os Serviços
-function atualizarDashboard() {
+function obterDataHoraAtual() {
+  const agora = new Date();
+  return agora.toLocaleString('pt-BR');
+}
+
+function carregarServicos() {
+  const dados = localStorage.getItem('servicos_db');
+  return dados ? JSON.parse(dados) : [];
+}
+
+function salvarServicos(servicos) {
+  localStorage.setItem('servicos_db', JSON.stringify(servicos));
+  atualizarContadoresCards();
+  filtrarServicos();
+}
+
+/* ==========================================================================
+   ATUALIZAÇÃO DE CONTADORES DOS CARDS
+   ========================================================================== */
+function atualizarContadoresCards() {
   const servicos = carregarServicos();
 
-  let pendentes = 0;
   let agendados = 0;
-  let emExecucao = 0;
+  let pendentes = 0;
+  let execucao = 0;
   let concluidos = 0;
 
   servicos.forEach(s => {
     const st = normalizarStatus(s.status);
     if (st.includes('agendad')) agendados++;
     else if (st.includes('pendent')) pendentes++;
-    else if (st.includes('execuc') || st.includes('andament')) emExecucao++;
+    else if (st.includes('execuc') || st.includes('andament')) execucao++;
     else if (st.includes('conclu')) concluidos++;
   });
 
-  const elemAg = document.getElementById('qtd-agendados') || document.getElementById('count-agendados');
-  const elemPe = document.getElementById('qtd-pendentes') || document.getElementById('count-pendentes');
-  const elemEx = document.getElementById('qtd-execucao') || document.getElementById('count-execucao');
-  const elemCo = document.getElementById('qtd-concluidos') || document.getElementById('count-concluidos');
+  const elAgendados = document.getElementById('cnt-agendados') || document.querySelector('#card-agendados .qtd');
+  const elPendentes = document.getElementById('cnt-pendentes') || document.querySelector('#card-pendentes .qtd');
+  const elExecucao = document.getElementById('cnt-execucao') || document.querySelector('#card-execucao .qtd');
+  const elConcluidos = document.getElementById('cnt-concluidos') || document.querySelector('#card-concluidos .qtd');
 
-  if (elemAg) elemAg.innerText = agendados;
-  if (elemPe) elemPe.innerText = pendentes;
-  if (elemEx) elemEx.innerText = emExecucao;
-  if (elemCo) elemCo.innerText = concluidos;
-}
-
-// Filtragem sem bloquear a lista em branco
-function filtrarPorStatus(status) {
-  // Se clicar no mesmo filtro que já está ativo, limpa o filtro para mostrar TODOS
-  if (normalizarStatus(filtroStatusAtual) === normalizarStatus(status)) {
-    filtroStatusAtual = null;
-  } else {
-    filtroStatusAtual = status;
-  }
-  atualizarEstiloCards();
-  filtrarServicos();
-}
-
-function atualizarEstiloCards() {
-  const filtroNorm = normalizarStatus(filtroStatusAtual);
-
-  const cardAg = document.getElementById('card-agendados');
-  const cardPe = document.getElementById('card-pendentes');
-  const cardEx = document.getElementById('card-execucao');
-  const cardCo = document.getElementById('card-concluidos');
-
-  if (cardAg) cardAg.classList.toggle('ativo', filtroNorm.includes('agendad'));
-  if (cardPe) cardPe.classList.toggle('ativo', filtroNorm.includes('pendent'));
-  if (cardEx) cardEx.classList.toggle('ativo', filtroNorm.includes('execuc') || filtroNorm.includes('andament'));
-  if (cardCo) cardCo.classList.toggle('ativo', filtroNorm.includes('conclu'));
-
-  const titulo = document.getElementById('titulo-lista');
-  if (titulo) {
-    titulo.innerText = filtroStatusAtual ? `Serviços (${filtroStatusAtual})` : 'Todos os Serviços';
-  }
-}
-
-function filtrarServicos() {
-  const termoInput = document.getElementById('search-input');
-  const termo = termoInput ? normalizarStatus(termoInput.value) : '';
-  let servicos = carregarServicos();
-
-  if (filtroStatusAtual) {
-    const filtroNorm = normalizarStatus(filtroStatusAtual);
-    servicos = servicos.filter(s => {
-      const st = normalizarStatus(s.status);
-      return st.includes(filtroNorm.slice(0, 4));
-    });
-  }
-
-  if (termo) {
-    servicos = servicos.filter(s =>
-      normalizarStatus(s.nome).includes(termo) ||
-      normalizarStatus(s.local).includes(termo) ||
-      normalizarStatus(s.responsavel).includes(termo)
-    );
-  }
-
-  renderizarServicos(servicos);
-}
-/* ==========================================================================
-   SISTEMA DE AUTENTICAÇÃO E PERFIL
-   ========================================================================== */
-function solicitarAcessoAdmin() {
-  if (perfilAtual === 'usuario') {
-    const senha = prompt("Digite a senha de Administrador:");
-    if (senha === "1234") { 
-      perfilAtual = 'admin';
-      localStorage.setItem('perfil_usuario', 'admin');
-      alert("Modo Administrador ativado!");
-    } else if (senha !== null) {
-      alert("Senha incorreta!");
-    }
-  } else {
-    perfilAtual = 'usuario';
-    localStorage.setItem('perfil_usuario', 'usuario');
-    alert("Alternado para Modo Usuário.");
-  }
-  atualizarLabelPerfil();
-  filtrarServicos();
-}
-
-function atualizarLabelPerfil() {
-  const label = document.getElementById('label-perfil');
-  if (label) {
-    label.innerText = perfilAtual === 'admin' ? 'Modo: Admin (Sair)' : 'Entrar como Admin';
-  }
-}
-
-/* ==========================================================================
-   INTEGRAÇÃO DE CLIMA (BELÉM DO SÃO FRANCISCO - PE)
-   ========================================================================== */
-async function buscarClimaBelem() {
-  const elemTemp = document.getElementById('clima-temp');
-  const elemDesc = document.getElementById('clima-desc');
-  const elemIcon = document.getElementById('weather-icon');
-
-  const urlApi = 'https://api.open-meteo.com/v1/forecast?latitude=-8.7531&longitude=-38.9667&current_weather=true';
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-    const resposta = await fetch(urlApi, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (!resposta.ok) throw new Error(`HTTP error! status: ${resposta.status}`);
-
-    const dados = await resposta.json();
-
-    if (dados && dados.current_weather) {
-      const temp = Math.round(dados.current_weather.temperature);
-      const code = dados.current_weather.weathercode;
-      const climaInfo = interpretarCodigoClima(code);
-
-      if (elemTemp) elemTemp.innerText = `${temp}°C`;
-      if (elemDesc) elemDesc.innerText = climaInfo.texto;
-      if (elemIcon) elemIcon.innerText = climaInfo.icone;
-    } else {
-      throw new Error('Formato de resposta inválido');
-    }
-
-  } catch (erro) {
-    console.error('Erro ao obter clima de Belém do São Francisco:', erro);
-    if (elemTemp) elemTemp.innerText = '--°C';
-    if (elemDesc) elemDesc.innerText = 'Indisponível';
-    if (elemIcon) elemIcon.innerText = '⚠️';
-  }
-}
-
-function interpretarCodigoClima(code) {
-  switch (code) {
-    case 0: return { texto: 'Céu Limpo', icone: '☀️' };
-    case 1: return { texto: 'Predominantemente Limpo', icone: '🌤️' };
-    case 2: return { texto: 'Parcialmente Nublado', icone: '⛅' };
-    case 3: return { texto: 'Nublado', icone: '☁️' };
-    case 45: case 48: return { texto: 'Névoa / Nevoeiro', icone: '🌫️' };
-    case 51: case 53: case 55: return { texto: 'Garoa Leve', icone: '🌦️' };
-    case 61: case 63: case 65: return { texto: 'Chuva', icone: '🌧️' };
-    case 80: case 81: case 82: return { texto: 'Pancadas de Chuva', icone: '🌦️' };
-    case 95: case 96: case 99: return { texto: 'Trovoadas / Tempestade', icone: '⛈️' };
-    default: return { texto: 'Ensolarado', icone: '☀️' };
-  }
-}
-
-setInterval(buscarClimaBelem, 15 * 60 * 1000);
-
-/* ==========================================================================
-   GERENCIAMENTO DE ÁREAS DA PROPRIEDADE
-   ========================================================================== */
-function carregarAreas() {
-  try {
-    const dados = localStorage.getItem(STORAGE_KEY_AREAS);
-    return dados ? JSON.parse(dados) : [
-      { id: 1, nome: 'Sede / Escritório' },
-      { id: 2, nome: 'Baia dos Reprodutores Boer' },
-      { id: 3, nome: 'Piquete 01' },
-      { id: 4, nome: 'Piquete 02' },
-      { id: 5, nome: 'Área de Matrizes / Maternidade' }
-    ];
-  } catch (e) {
-    return [];
-  }
-}
-
-function salvarAreas(areas) {
-  localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
-  atualizarSelectAreasServico();
-}
-
-function abrirModalAreas() {
-  renderizarListaAreas();
-  const modal = document.getElementById('modal-areas');
-  if (modal) modal.style.display = 'flex';
-}
-
-function fecharModalAreas() {
-  const modal = document.getElementById('modal-areas');
-  if (modal) modal.style.display = 'none';
-}
-
-function adicionarNovaArea(event) {
-  if (event) event.preventDefault();
-  const input = document.getElementById('nome-nova-area');
-  if (!input) return;
-  const nome = input.value.trim();
-  if (!nome) return alert('Informe o nome da área.');
-
-  const areas = carregarAreas();
-  areas.push({ id: Date.now(), nome: nome });
-  salvarAreas(areas);
-  input.value = '';
-  renderizarListaAreas();
-}
-
-function removerArea(id) {
-  if (confirm('Deseja remover esta área?')) {
-    let areas = carregarAreas();
-    areas = areas.filter(a => Number(a.id) !== Number(id));
-    salvarAreas(areas);
-    renderizarListaAreas();
-  }
-}
-
-function renderizarListaAreas() {
-  const container = document.getElementById('lista-areas-container');
-  if (!container) return;
-  const areas = carregarAreas();
-
-  if (areas.length === 0) {
-    container.innerHTML = '<p style="color: #7f8c8d; font-size: 0.85rem;">Nenhuma área cadastrada.</p>';
-    return;
-  }
-
-  container.innerHTML = areas.map(a => `
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #e2e8f0;">
-      <span style="font-size: 0.9rem; font-weight: 500; color: #1e293b;">📍 ${a.nome}</span>
-      ${perfilAtual === 'admin' ? `<button onclick="removerArea(${a.id})" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; cursor: pointer;">Excluir</button>` : ''}
-    </div>
-  `).join('');
-}
-
-function atualizarSelectAreasServico() {
-  const select = document.getElementById('local-servico');
-  if (!select) return;
-  const areas = carregarAreas();
-  select.innerHTML = '<option value="">Selecione o local...</option>' + 
-    areas.map(a => `<option value="${a.nome}">${a.nome}</option>`).join('');
-}
-
-/* ==========================================================================
-   GERENCIAMENTO DE DADOS E PERSISTÊNCIA
-   ========================================================================== */
-function carregarServicos() {
-  try {
-    const dados = localStorage.getItem(STORAGE_KEY);
-    return dados ? JSON.parse(dados) : [];
-  } catch (e) {
-    console.error("Erro ao carregar serviços do localStorage:", e);
-    return [];
-  }
-}
-
-function salvarServicos(servicos) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(servicos));
-    atualizarDashboard();
-    filtrarServicos();
-  } catch (e) {
-    alert("Atenção: Limite de armazenamento local excedido! Tente remover serviços antigos ou fotos.");
-  }
-}
-
-function obterDataHoraAtual() {
-  const agora = new Date();
-  return agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
-function verificarServicosAtrasados() {
-  const hojeStr = new Date().toISOString().split('T')[0];
-  const lista = carregarServicos();
-
-  lista.forEach(s => {
-    const st = normalizarStatus(s.status);
-    const dataAgendada = s.dataAgendada || s.agendamento;
-    if ((st === 'agendado' || st === 'pendente') && dataAgendada && dataAgendada < hojeStr) {
-      s.isAtrasado = true;
-    } else {
-      s.isAtrasado = false;
-    }
-  });
-}
-
-function atualizarDashboard() {
-  const servicos = carregarServicos();
-
-  let pendentes = 0;
-  let agendados = 0;
-  let emExecucao = 0;
-  let concluidos = 0;
-
-  servicos.forEach(s => {
-    const st = normalizarStatus(s.status);
-
-    if (st.includes('agendad')) {
-      agendados++;
-    } else if (st.includes('pendent')) {
-      pendentes++;
-    } else if (st.includes('execuc') || st.includes('andament')) {
-      emExecucao++;
-    } else if (st.includes('conclu')) {
-      concluidos++;
-    }
-  });
-
-  const elemAg = document.getElementById('qtd-agendados') || document.getElementById('count-agendados');
-  const elemPe = document.getElementById('qtd-pendentes') || document.getElementById('count-pendentes');
-  const elemEx = document.getElementById('qtd-execucao') || document.getElementById('count-execucao');
-  const elemCo = document.getElementById('qtd-concluidos') || document.getElementById('count-concluidos');
-
-  if (elemAg) elemAg.innerText = agendados;
-  if (elemPe) elemPe.innerText = pendentes;
-  if (elemEx) elemEx.innerText = emExecucao;
-  if (elemCo) elemCo.innerText = concluidos;
-}
-
-/* ==========================================================================
-   MODAIS E FORMULÁRIOS DE SERVIÇOS
-   ========================================================================== */
-function abrirModal() {
-  atualizarSelectAreasServico();
-  const modal = document.getElementById('modal-servico');
-  if (modal) modal.style.display = 'flex';
-}
-
-function fecharModal() {
-  const modal = document.getElementById('modal-servico');
-  if (modal) modal.style.display = 'none';
-  const form = document.getElementById('form-servico');
-  if (form) form.reset();
-}
-
-function salvarServicoFormulario(event) {
-  event.preventDefault();
-
-  const nome = document.getElementById('nome-servico').value;
-  const local = document.getElementById('local-servico').value || 'Geral';
-  const responsavel = document.getElementById('responsavel-servico').value || 'Não atribuído';
-  const prioridade = document.getElementById('prioridade-servico').value;
-  const observacoes = document.getElementById('obs-servico').value;
-
-  const dataAgendadaVal = document.getElementById('data-agendada') ? document.getElementById('data-agendada').value : '';
-  const horaAgendadaVal = document.getElementById('hora-agendada') ? document.getElementById('hora-agendada').value : '';
-
-  let statusInicial = 'Pendente';
-  let informacaoAgendamento = null;
-
-  if (dataAgendadaVal) {
-    statusInicial = 'Agendado';
-    const partesData = dataAgendadaVal.split('-');
-    const dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
-    informacaoAgendamento = `${dataFormatada}${horaAgendadaVal ? ' às ' + horaAgendadaVal : ''}`;
-  }
-
-  const servicos = carregarServicos();
-  const novoServico = {
-    id: Date.now(),
-    nome: nome,
-    local: local,
-    responsavel: responsavel,
-    prioridade: prioridade,
-    observacoes: observacoes,
-    status: statusInicial,
-    agendamento: informacaoAgendamento,
-    dataAgendada: dataAgendadaVal,
-    historicoExecucao: [],
-    conclusaoInfo: null,
-    fotos: [],
-    data: new Date().toLocaleDateString('pt-BR')
-  };
-
-  servicos.unshift(novoServico);
-  salvarServicos(servicos);
-  fecharModal();
+  if (elAgendados) elAgendados.innerText = agendados;
+  if (elPendentes) elPendentes.innerText = pendentes;
+  if (elExecucao) elExecucao.innerText = execucao;
+  if (elConcluidos) elConcluidos.innerText = concluidos;
 }
 
 /* ==========================================================================
@@ -526,7 +131,11 @@ function renderizarServicos(servicos) {
   const lista = servicos || carregarServicos();
 
   if (lista.length === 0) {
-    container.innerHTML = '<p class="empty-msg" style="text-align: center; color: #7f8c8d; margin-top: 20px;">Nenhum serviço encontrado.</p>';
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; border: 1px dashed rgba(255, 255, 255, 0.2); margin-top: 15px;">
+        <p style="font-size: 1.1rem; color: #a0aec0; margin: 0;">📋 Nenhum serviço cadastrado ou encontrado no filtro atual.</p>
+      </div>
+    `;
     return;
   }
 
@@ -576,9 +185,9 @@ function renderizarServicos(servicos) {
     acoesHTML += '</div>';
 
     return `
-    <div class="service-card" style="background: #fff; padding: 14px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+    <div class="service-card" style="background: #fff; padding: 14px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; color: #333;">
       <div class="service-main" style="display: flex; justify-content: space-between; align-items: center;">
-        <h4 style="margin: 0; color: #1b3b22;">${(s.nome || 'Serviço').toUpperCase()}</h4>
+        <h4 style="margin: 0; color: #1b3b22; font-size: 1rem;">${(s.nome || 'Serviço').toUpperCase()}</h4>
         <span class="badge ${statusNorm.replace(/\s+/g, '-')}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${s.status}</span>
       </div>
       <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data || s.dataCriacao || 'N/A'}</p>
@@ -878,7 +487,7 @@ function carregarImagensConclusao(event) {
 }
 
 function confirmarConclusaoServico(event) {
-  event.preventDefault();
+  if (event) event.preventDefault();
   const relatorio = document.getElementById('relatorio-conclusao').value.trim();
   if (!relatorio) return alert('Informe o relatório de conclusão.');
 
@@ -954,3 +563,16 @@ function confirmarEdicaoConclusao(event) {
   }
   fecharModalEditarConclusao();
 }
+
+/* ==========================================================================
+   INICIALIZAÇÃO DA PÁGINA
+   ========================================================================== */
+document.addEventListener('DOMContentLoaded', () => {
+  atualizarContadoresCards();
+  filtrarServicos();
+
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', filtrarServicos);
+  }
+});
