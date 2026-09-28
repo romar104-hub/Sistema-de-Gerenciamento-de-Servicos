@@ -10,7 +10,7 @@
 </head>
 <body>
 
-<!-- CABEÇALHO ÚNICO E UNIFICADO DA PROPRIEDADE -->
+<!-- CABEÇALHO ÚNICO DA PROPRIEDADE -->
 <header class="hero-header">
   <div class="hero-container">
     
@@ -18,7 +18,6 @@
     <div class="brand-section">
       <div class="brand-logo-container">
         <div class="brand-logo" id="header-logo">
-          <!-- Subsitua o caminho da imagem do seu logo aqui -->
           <img src="logo.png" alt="Criatório Marques" onerror="this.parentElement.innerHTML='CM'">
         </div>
       </div>
@@ -32,7 +31,7 @@
       </div>
     </div>
 
-    <!-- DIREITA: AÇÕES, STATUS E CLIMA (DENTRO DO HEADER) -->
+    <!-- DIREITA: AÇÕES, STATUS E CLIMA -->
     <div class="header-actions">
       
       <!-- INDICADOR DE CONECTIVIDADE -->
@@ -58,61 +57,6 @@
           <div class="weather-temp" id="clima-temp">24°C</div>
           <div class="weather-details" style="display: flex; flex-direction: column; line-height: 1.1;">
             <span id="clima-desc" style="font-size: 0.68rem; color: #e0e0e0;">Céu Limpo</span>
-            <span class="weather-location" id="header-cidade" style="font-size: 0.68rem; color: #d4af37;">📍 Belém do São Francisco - PE</span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-  </div>
-</header>
-
-<!-- CABEÇALHO ÚNICO DA PROPRIEDADE -->
-<header class="hero-header">
-  <div class="hero-container">
-    
-    <!-- LADO ESQUERDO: IDENTIDADE E NOME DA FAZENDA -->
-    <div class="brand-section">
-      <div class="brand-logo-container">
-        <div class="brand-logo" id="header-logo">CM</div>
-      </div>
-      <div class="brand-info">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <h1 id="header-nome-fazenda">CRIATÓRIO MARQUES</h1>
-          <button class="btn-edit-farm" onclick="abrirModalPerfilFazenda()">⚙️ Editar</button>
-        </div>
-        <h2>AgroGestão • Serviços da Propriedade</h2>
-        <div class="brand-slogan" id="header-slogan">"A VITRINE DO BÔER"</div>
-      </div>
-    </div>
-
-    <!-- LADO DIREITO: BOTÕES DE AÇÃO, STATUS E CLIMA -->
-    <div class="header-actions">
-      
-      <!-- INDICADOR DE CONECTIVIDADE -->
-      <div id="status-conexao" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; background: #ffffff; color: #1b3b22;">
-        <span id="dot-conexao" style="width: 8px; height: 8px; border-radius: 50%; background: #27ae60;"></span>
-        <span id="texto-conexao">Online</span>
-      </div>
-
-      <!-- BOTÃO DE ÁREAS DA PROPRIEDADE -->
-      <button type="button" onclick="abrirModalAreas()" style="padding: 6px 14px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-        📍 Áreas da Propriedade
-      </button>
-
-      <!-- BOTÃO DE ACESSO PERFIL / ADMIN -->
-      <button id="btn-login-perfil" onclick="solicitarAcessoAdmin()" style="padding: 6px 12px; font-size: 0.8rem; background: rgba(0, 0, 0, 0.3); color: white; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 20px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-        🔑 <span id="label-perfil">Entrar como Admin</span>
-      </button>
-
-      <!-- CLIMA EM TEMPO REAL -->
-      <div class="weather-card" id="weather-box">
-        <div style="font-size: 1.3rem;" id="weather-icon">☀️</div>
-        <div>
-          <div class="weather-temp" id="clima-temp">--°C</div>
-          <div class="weather-details" style="display: flex; flex-direction: column; line-height: 1.1;">
-            <span id="clima-desc" style="font-size: 0.68rem; color: #e0e0e0;">Carregando clima...</span>
             <span class="weather-location" id="header-cidade" style="font-size: 0.68rem; color: #d4af37;">📍 Belém do São Francisco - PE</span>
           </div>
         </div>
