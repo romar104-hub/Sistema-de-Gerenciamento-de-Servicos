@@ -38,7 +38,6 @@ let perfilAtual = localStorage.getItem('perfil_usuario') || 'usuario';
 document.addEventListener('DOMContentLoaded', () => {
   carregarDadosFazendaNaTela();
   verificarServicosAtrasados(); 
-  atualizarDashboard(); // Força a atualização da contagem no topo
   renderizarServicos();
   
   if (!localStorage.getItem('dadosFazenda')) {
@@ -46,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   buscarClimaBelem();
+  atualizarDashboard();
   filtrarServicos();
 
   if (typeof atualizarStatusConexao === 'function') atualizarStatusConexao();
@@ -58,111 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ==========================================================================
-   FUNÇÃO DE NORMALIZAÇÃO DE STATUS (RESOLVE O PROBLEMA DOS CONTADORES)
-   ========================================================================== */
-/* ==========================================================================
-   CRIATÓRIO MARQUES - CORREÇÃO DE FILTROS E RENDERIZAÇÃO
-   ========================================================================== */
-
-// Função de normalização segura
-function normalizarStatus(status) {
-  if (!status) return '';
-  return String(status)
-    .toLowerCase()
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-// Atualizar e Contar os Serviços
-function atualizarDashboard() {
-  const servicos = carregarServicos();
-
-  let pendentes = 0;
-  let agendados = 0;
-  let emExecucao = 0;
-  let concluidos = 0;
-
-  servicos.forEach(s => {
-    const st = normalizarStatus(s.status);
-    if (st.includes('agendad')) agendados++;
-    else if (st.includes('pendent')) pendentes++;
-    else if (st.includes('execuc') || st.includes('andament')) emExecucao++;
-    else if (st.includes('conclu')) concluidos++;
-  });
-
-  const elemAg = document.getElementById('qtd-agendados') || document.getElementById('count-agendados');
-  const elemPe = document.getElementById('qtd-pendentes') || document.getElementById('count-pendentes');
-  const elemEx = document.getElementById('qtd-execucao') || document.getElementById('count-execucao');
-  const elemCo = document.getElementById('qtd-concluidos') || document.getElementById('count-concluidos');
-
-  if (elemAg) elemAg.innerText = agendados;
-  if (elemPe) elemPe.innerText = pendentes;
-  if (elemEx) elemEx.innerText = emExecucao;
-  if (elemCo) elemCo.innerText = concluidos;
-}
-
-// Filtragem sem bloquear a lista em branco
-function filtrarPorStatus(status) {
-  // Se clicar no mesmo filtro que já está ativo, limpa o filtro para mostrar TODOS
-  if (normalizarStatus(filtroStatusAtual) === normalizarStatus(status)) {
-    filtroStatusAtual = null;
-  } else {
-    filtroStatusAtual = status;
-  }
-  atualizarEstiloCards();
-  filtrarServicos();
-}
-
-function atualizarEstiloCards() {
-  const filtroNorm = normalizarStatus(filtroStatusAtual);
-
-  const cardAg = document.getElementById('card-agendados');
-  const cardPe = document.getElementById('card-pendentes');
-  const cardEx = document.getElementById('card-execucao');
-  const cardCo = document.getElementById('card-concluidos');
-
-  if (cardAg) cardAg.classList.toggle('ativo', filtroNorm.includes('agendad'));
-  if (cardPe) cardPe.classList.toggle('ativo', filtroNorm.includes('pendent'));
-  if (cardEx) cardEx.classList.toggle('ativo', filtroNorm.includes('execuc') || filtroNorm.includes('andament'));
-  if (cardCo) cardCo.classList.toggle('ativo', filtroNorm.includes('conclu'));
-
-  const titulo = document.getElementById('titulo-lista');
-  if (titulo) {
-    titulo.innerText = filtroStatusAtual ? `Serviços (${filtroStatusAtual})` : 'Todos os Serviços';
-  }
-}
-
-function filtrarServicos() {
-  const termoInput = document.getElementById('search-input');
-  const termo = termoInput ? normalizarStatus(termoInput.value) : '';
-  let servicos = carregarServicos();
-
-  if (filtroStatusAtual) {
-    const filtroNorm = normalizarStatus(filtroStatusAtual);
-    servicos = servicos.filter(s => {
-      const st = normalizarStatus(s.status);
-      return st.includes(filtroNorm.slice(0, 4));
-    });
-  }
-
-  if (termo) {
-    servicos = servicos.filter(s =>
-      normalizarStatus(s.nome).includes(termo) ||
-      normalizarStatus(s.local).includes(termo) ||
-      normalizarStatus(s.responsavel).includes(termo)
-    );
-  }
-
-  renderizarServicos(servicos);
-}
-/* ==========================================================================
    SISTEMA DE AUTENTICAÇÃO E PERFIL
    ========================================================================== */
 function solicitarAcessoAdmin() {
   if (perfilAtual === 'usuario') {
     const senha = prompt("Digite a senha de Administrador:");
-    if (senha === "1234") { 
+    if (senha === "1234") { // Altere '1234' para a senha de sua preferência
       perfilAtual = 'admin';
       localStorage.setItem('perfil_usuario', 'admin');
       alert("Modo Administrador ativado!");
@@ -193,6 +94,7 @@ async function buscarClimaBelem() {
   const elemDesc = document.getElementById('clima-desc');
   const elemIcon = document.getElementById('weather-icon');
 
+  // Coordenadas de Belém do São Francisco - PE (Lat: -8.7531, Lon: -38.9667)
   const urlApi = 'https://api.open-meteo.com/v1/forecast?latitude=-8.7531&longitude=-38.9667&current_weather=true';
 
   try {
@@ -228,16 +130,35 @@ async function buscarClimaBelem() {
 
 function interpretarCodigoClima(code) {
   switch (code) {
-    case 0: return { texto: 'Céu Limpo', icone: '☀️' };
-    case 1: return { texto: 'Predominantemente Limpo', icone: '🌤️' };
-    case 2: return { texto: 'Parcialmente Nublado', icone: '⛅' };
-    case 3: return { texto: 'Nublado', icone: '☁️' };
-    case 45: case 48: return { texto: 'Névoa / Nevoeiro', icone: '🌫️' };
-    case 51: case 53: case 55: return { texto: 'Garoa Leve', icone: '🌦️' };
-    case 61: case 63: case 65: return { texto: 'Chuva', icone: '🌧️' };
-    case 80: case 81: case 82: return { texto: 'Pancadas de Chuva', icone: '🌦️' };
-    case 95: case 96: case 99: return { texto: 'Trovoadas / Tempestade', icone: '⛈️' };
-    default: return { texto: 'Ensolarado', icone: '☀️' };
+    case 0:
+      return { texto: 'Céu Limpo', icone: '☀️' };
+    case 1:
+      return { texto: 'Predominantemente Limpo', icone: '🌤️' };
+    case 2:
+      return { texto: 'Parcialmente Nublado', icone: '⛅' };
+    case 3:
+      return { texto: 'Nublado', icone: '☁️' };
+    case 45:
+    case 48:
+      return { texto: 'Névoa / Nevoeiro', icone: '🌫️' };
+    case 51:
+    case 53:
+    case 55:
+      return { texto: 'Garoa Leve', icone: '🌦️' };
+    case 61:
+    case 63:
+    case 65:
+      return { texto: 'Chuva', icone: '🌧️' };
+    case 80:
+    case 81:
+    case 82:
+      return { texto: 'Pancadas de Chuva', icone: '🌦️' };
+    case 95:
+    case 96:
+    case 99:
+      return { texto: 'Trovoadas / Tempestade', icone: '⛈️' };
+    default:
+      return { texto: 'Ensolarado', icone: '☀️' };
   }
 }
 
@@ -359,9 +280,9 @@ function verificarServicosAtrasados() {
   const lista = carregarServicos();
 
   lista.forEach(s => {
-    const st = normalizarStatus(s.status);
+    const statusAtual = (s.status || '').toLowerCase().trim();
     const dataAgendada = s.dataAgendada || s.agendamento;
-    if ((st === 'agendado' || st === 'pendente') && dataAgendada && dataAgendada < hojeStr) {
+    if ((statusAtual === 'agendado' || statusAtual === 'pendente') && dataAgendada && dataAgendada < hojeStr) {
       s.isAtrasado = true;
     } else {
       s.isAtrasado = false;
@@ -371,6 +292,7 @@ function verificarServicosAtrasados() {
 
 function atualizarDashboard() {
   const servicos = carregarServicos();
+  const total = servicos.length;
 
   let pendentes = 0;
   let agendados = 0;
@@ -378,23 +300,17 @@ function atualizarDashboard() {
   let concluidos = 0;
 
   servicos.forEach(s => {
-    const st = normalizarStatus(s.status);
-
-    if (st.includes('agendad')) {
-      agendados++;
-    } else if (st.includes('pendent')) {
-      pendentes++;
-    } else if (st.includes('execuc') || st.includes('andament')) {
-      emExecucao++;
-    } else if (st.includes('conclu')) {
-      concluidos++;
-    }
+    const st = (s.status || '').toLowerCase().trim();
+    if (st === 'pendente') pendentes++;
+    else if (st === 'agendado') agendados++;
+    else if (st === 'em execução' || st === 'em execucao') emExecucao++;
+    else if (st === 'concluído' || st === 'concluido') concluidos++;
   });
 
-  const elemAg = document.getElementById('qtd-agendados') || document.getElementById('count-agendados');
-  const elemPe = document.getElementById('qtd-pendentes') || document.getElementById('count-pendentes');
-  const elemEx = document.getElementById('qtd-execucao') || document.getElementById('count-execucao');
-  const elemCo = document.getElementById('qtd-concluidos') || document.getElementById('count-concluidos');
+  const elemAg = document.getElementById('qtd-agendados');
+  const elemPe = document.getElementById('qtd-pendentes');
+  const elemEx = document.getElementById('qtd-execucao');
+  const elemCo = document.getElementById('qtd-concluidos');
 
   if (elemAg) elemAg.innerText = agendados;
   if (elemPe) elemPe.innerText = pendentes;
@@ -476,16 +392,10 @@ function filtrarPorStatus(status) {
 }
 
 function atualizarEstiloCards() {
-  const filtroNorm = normalizarStatus(filtroStatusAtual);
-
-  if (document.getElementById('card-agendados')) 
-    document.getElementById('card-agendados').classList.toggle('ativo', filtroNorm.includes('agendad'));
-  if (document.getElementById('card-pendentes')) 
-    document.getElementById('card-pendentes').classList.toggle('ativo', filtroNorm.includes('pendent'));
-  if (document.getElementById('card-execucao')) 
-    document.getElementById('card-execucao').classList.toggle('ativo', filtroNorm.includes('execuc') || filtroNorm.includes('andament'));
-  if (document.getElementById('card-concluidos')) 
-    document.getElementById('card-concluidos').classList.toggle('ativo', filtroNorm.includes('conclu'));
+  if (document.getElementById('card-agendados')) document.getElementById('card-agendados').classList.toggle('ativo', filtroStatusAtual === 'Agendado');
+  if (document.getElementById('card-pendentes')) document.getElementById('card-pendentes').classList.toggle('ativo', filtroStatusAtual === 'Pendente');
+  if (document.getElementById('card-execucao')) document.getElementById('card-execucao').classList.toggle('ativo', filtroStatusAtual === 'Em execução');
+  if (document.getElementById('card-concluidos')) document.getElementById('card-concluidos').classList.toggle('ativo', filtroStatusAtual === 'Concluído');
 
   const titulo = document.getElementById('titulo-lista');
   if (titulo) {
@@ -495,19 +405,18 @@ function atualizarEstiloCards() {
 
 function filtrarServicos() {
   const termoInput = document.getElementById('search-input');
-  const termo = termoInput ? normalizarStatus(termoInput.value) : '';
+  const termo = termoInput ? termoInput.value.toLowerCase() : '';
   let servicos = carregarServicos();
 
   if (filtroStatusAtual) {
-    const filtroNorm = normalizarStatus(filtroStatusAtual);
-    servicos = servicos.filter(s => normalizarStatus(s.status).includes(filtroNorm.slice(0, 5)));
+    servicos = servicos.filter(s => s.status === filtroStatusAtual);
   }
 
   if (termo) {
     servicos = servicos.filter(s =>
-      normalizarStatus(s.nome).includes(termo) ||
-      normalizarStatus(s.local).includes(termo) ||
-      normalizarStatus(s.responsavel).includes(termo)
+      (s.nome && s.nome.toLowerCase().includes(termo)) ||
+      (s.local && s.local.toLowerCase().includes(termo)) ||
+      (s.responsavel && s.responsavel.toLowerCase().includes(termo))
     );
   }
 
@@ -535,13 +444,13 @@ function renderizarServicos(servicos) {
     const jaIniciouAlgo = historico.length > 0;
     const rotuloIniciar = jaIniciouAlgo ? '▶️ Retomar' : '🚀 Iniciar';
 
-    const statusNorm = normalizarStatus(s.status);
-    const isConcluido = statusNorm.includes('conclu');
+    const statusAtual = (s.status || '').toString().toLowerCase().trim();
+    const isConcluido = statusAtual === 'concluído' || statusAtual === 'concluido';
 
     const hojeStr = new Date().toISOString().split('T')[0];
     const emAtraso = (!isConcluido) && (
       s.isAtrasado || 
-      ((statusNorm.includes('agendad') || statusNorm.includes('pendent')) && (
+      ((statusAtual === 'agendado' || statusAtual === 'pendente') && (
         (typeof verificarAtrasoAgendamento === 'function' && verificarAtrasoAgendamento(s.agendamento || s.dataAgendada)) ||
         (s.dataAgendada && s.dataAgendada < hojeStr)
       ))
@@ -561,10 +470,10 @@ function renderizarServicos(servicos) {
         `;
       }
     } else {
-      if (statusNorm.includes('pendent') || statusNorm.includes('agendad')) {
+      if (statusAtual === 'pendente' || statusAtual === 'agendado') {
         acoesHTML += `<button onclick="iniciarServico(${s.id})" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; background: #2e5a3c; color: white; border: none; border-radius: 6px; cursor: pointer;">${rotuloIniciar}</button>`;
       }
-      if (statusNorm.includes('execuc') || statusNorm.includes('andament')) {
+      if (statusAtual === 'em execução' || statusAtual === 'em execucao') {
         acoesHTML += `<button onclick="solicitarPausaServico(${s.id})" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer;">⏸️ Pausar</button>`;
       }
       acoesHTML += `<button onclick="solicitarConclusaoServico(${s.id})" style="padding: 6px 12px; font-size: 0.8rem; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">✅ Concluir</button>`;
@@ -579,7 +488,7 @@ function renderizarServicos(servicos) {
     <div class="service-card" style="background: #fff; padding: 14px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
       <div class="service-main" style="display: flex; justify-content: space-between; align-items: center;">
         <h4 style="margin: 0; color: #1b3b22;">${(s.nome || 'Serviço').toUpperCase()}</h4>
-        <span class="badge ${statusNorm.replace(/\s+/g, '-')}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${s.status}</span>
+        <span class="badge ${(s.status || '').toLowerCase().replace(' ', '-').replace('ú', 'u')}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${s.status}</span>
       </div>
       <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${s.local} | 👤 ${s.responsavel} | 📅 Criado: ${s.data || s.dataCriacao || 'N/A'}</p>
       <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0;">Prioridade: <strong>${s.prioridade || 'Normal'}</strong></p>
@@ -926,12 +835,24 @@ function renderizarPreviewFotosEdicao() {
   preview.innerHTML = '';
   imagensTempConclusao.forEach((imgSrc, index) => {
     const div = document.createElement('div');
-    div.style.cssText = 'position: relative; display: inline-block; margin: 4px;';
+    div.style.cssText = 'position: relative; display: inline-block;';
     div.innerHTML = `
       <img src="${imgSrc}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc;">
-      <button onclick="removerFotoEdicao(${index})" style="position: absolute; top: -5px; right: -5px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer;">✕</button>
+      <button type="button" onclick="removerFotoEdicao(${index})" style="position: absolute; top: -5px; right: -5px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer;">✕</button>
     `;
     preview.appendChild(div);
+  });
+}
+
+function carregarNovasImagensEdicao(event) {
+  const files = Array.from(event.target.files);
+  if (files.length === 0) return;
+
+  files.forEach(file => {
+    comprimirImagem(file, 1000, 1000, 0.8, function(base64Otimizado) {
+      imagensTempConclusao.push(base64Otimizado);
+      renderizarPreviewFotosEdicao();
+    });
   });
 }
 
@@ -941,16 +862,230 @@ function removerFotoEdicao(index) {
 }
 
 function confirmarEdicaoConclusao(event) {
-  if (event) event.preventDefault();
-  const campoText = document.getElementById('relatorio-conclusao-editar');
-  const textoAtualizado = campoText ? campoText.value.trim() : '';
+  event.preventDefault();
+  const relatorio = document.getElementById('relatorio-conclusao-editar').value.trim();
 
   let servicos = carregarServicos();
   const item = servicos.find(s => Number(s.id) === Number(servicoEdicaoConclusaoId));
   if (item) {
-    item.conclusaoInfo = textoAtualizado;
+    item.conclusaoInfo = relatorio;
     item.fotos = imagensTempConclusao;
     salvarServicos(servicos);
   }
   fecharModalEditarConclusao();
+}
+
+/* ==========================================================================
+   VISUALIZAÇÃO DE IMAGENS E RELATÓRIOS (WHATSAPP / RESUMO)
+   ========================================================================== */
+function ampliarImagem(src) {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px; box-sizing: border-box;';
+  modal.innerHTML = `
+    <div style="position: relative; max-width: 90%; max-height: 90%;">
+      <img src="${src}" style="max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+      <button onclick="this.parentElement.parentElement.remove()" style="position: absolute; top: -10px; right: -10px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; cursor: pointer; font-size: 16px;">✕</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function abrirRelatorioCompleto(id) {
+  const servicos = carregarServicos();
+  const s = servicos.find(item => Number(item.id) === Number(id));
+  if (!s) return;
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 15px; box-sizing: border-box;';
+  
+  modal.innerHTML = `
+    <div style="background: white; border-radius: 12px; padding: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.2);">
+      <h3 style="margin-top: 0; color: #1b3b22; border-bottom: 2px solid #2e5a3c; padding-bottom: 8px;">📋 RELATÓRIO DE SERVIÇO</h3>
+      <p><strong>Serviço:</strong> ${s.nome}</p>
+      <p><strong>Local:</strong> ${s.local}</p>
+      <p><strong>Responsável:</strong> ${s.responsavel}</p>
+      <p><strong>Prioridade:</strong> ${s.prioridade || 'Normal'}</p>
+      <p><strong>Data de Criação:</strong> ${s.data || 'N/A'}</p>
+      ${s.observacoes ? `<p><strong>Observações:</strong> ${s.observacoes}</p>` : ''}
+      <hr style="border: 0; border-top: 1px solid #eee; margin: 12px 0;">
+      <p><strong>Relatório de Conclusão:</strong></p>
+      <div style="background: #f8fafc; padding: 10px; border-radius: 6px; border-left: 4px solid #27ae60; font-size: 0.9rem;">${s.conclusaoInfo || 'Sem descrição.'}</div>
+      ${s.fotos && s.fotos.length > 0 ? `
+        <p style="margin-top: 12px;"><strong>Fotos Registradas:</strong></p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          ${s.fotos.map(f => `<img src="${f}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; cursor: pointer;" onclick="ampliarImagem('${f}')">`).join('')}
+        </div>
+      ` : ''}
+      <div style="margin-top: 20px; text-align: right;">
+        <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Fechar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function enviarRelatorioWhatsApp(id) {
+  const servicos = carregarServicos();
+  const s = servicos.find(item => Number(item.id) === Number(id));
+  if (!s) return;
+
+  let texto = `*${dadosFazenda.nome || 'CRIATÓRIO MARQUES'}*\n`;
+  texto += `*Relatório de Serviço Concluído*\n\n`;
+  texto += `📌 *Serviço:* ${s.nome}\n`;
+  texto += `📍 *Local:* ${s.local}\n`;
+  texto += `👤 *Responsável:* ${s.responsavel}\n`;
+  texto += `📅 *Data:* ${s.data || 'N/A'}\n\n`;
+  texto += `📝 *Relatório de Execução:*\n${s.conclusaoInfo || 'Atividade finalizada com sucesso.'}\n`;
+
+  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+  window.open(url, '_blank');
+}
+
+/* ==========================================================================
+   CONFIGURAÇÕES DA FAZENDA E LOGO
+   ========================================================================== */
+function abrirModalPerfilFazenda(primeiraVez = false) {
+  const modal = document.getElementById('modal-perfil-fazenda');
+  if (!modal) return;
+
+  document.getElementById('input-nome-fazenda').value = dadosFazenda.nome || '';
+  document.getElementById('input-slogan-fazenda').value = dadosFazenda.slogan || '';
+  document.getElementById('input-cidade-fazenda').value = dadosFazenda.cidade || '';
+
+  const preview = document.getElementById('preview-logo-fazenda');
+  if (preview && dadosFazenda.logoBase64) {
+    preview.src = dadosFazenda.logoBase64;
+    preview.style.display = 'block';
+  } else if (preview) {
+    preview.style.display = 'none';
+  }
+
+  modal.style.display = 'flex';
+}
+
+function abrirModalPerfilFazenda(primeiraVez = false) {
+  const modal = document.getElementById('modal-perfil-fazenda');
+  if (!modal) return;
+
+  // Carrega os dados salvos nos inputs
+  document.getElementById('input-nome-fazenda').value = dadosFazenda.nome || '';
+  document.getElementById('input-slogan-fazenda').value = dadosFazenda.slogan || '';
+  document.getElementById('input-cidade-fazenda').value = dadosFazenda.cidade || '';
+
+  // Reseta a variável temporária com a logo atual salva
+  logoTempBase64 = dadosFazenda.logoBase64 || '';
+
+  const preview = document.getElementById('preview-logo-fazenda');
+  if (preview) {
+    if (dadosFazenda.logoBase64) {
+      preview.src = dadosFazenda.logoBase64;
+      preview.style.display = 'block';
+    } else {
+      preview.style.display = 'none';
+      preview.src = '';
+    }
+  }
+
+  modal.style.display = 'flex';
+}
+
+function fecharModalPerfilFazenda() {
+  const modal = document.getElementById('modal-perfil-fazenda');
+  if (modal) modal.style.display = 'none';
+  logoTempBase64 = ''; // Limpa a temporária ao fechar
+}
+
+function carregarLogoFazenda(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  comprimirImagem(file, 400, 400, 0.85, function(base64) {
+    logoTempBase64 = base64;
+    const preview = document.getElementById('preview-logo-fazenda');
+    if (preview) {
+      preview.src = base64;
+      preview.style.display = 'block';
+    }
+  });
+}
+
+function salvarPerfilFazenda(event) {
+  if (event) event.preventDefault();
+  
+  // Captura os dados dos campos do modal
+  dadosFazenda = {
+    nome: document.getElementById('input-nome-fazenda').value.trim() || 'CRIATÓRIO MARQUES',
+    slogan: document.getElementById('input-slogan-fazenda').value.trim(),
+    cidade: document.getElementById('input-cidade-fazenda').value.trim(),
+    logoBase64: logoTempBase64 || dadosFazenda.logoBase64 || ''
+  };
+
+  // Guarda os dados atualizados no armazenamento local
+  localStorage.setItem('dadosFazenda', JSON.stringify(dadosFazenda));
+  
+  // Atualiza a interface
+  carregarDadosFazendaNaTela();
+  fecharModalPerfilFazenda();
+}
+
+function carregarDadosFazendaNaTela() {
+  try {
+    const salvos = localStorage.getItem('dadosFazenda');
+    if (salvos) dadosFazenda = JSON.parse(salvos);
+  } catch(e) {}
+
+  const titulo = document.getElementById('header-nome-fazenda');
+  const slogan = document.getElementById('header-slogan');
+  const logoContainer = document.getElementById('header-logo');
+
+  if (titulo) titulo.innerText = dadosFazenda.nome || 'CRIATÓRIO MARQUES';
+  if (slogan) slogan.innerText = dadosFazenda.slogan ? `"${dadosFazenda.slogan}"` : '"Excelência em Genética e Manejo no Sertão"';
+  
+  if (logoContainer) {
+    if (dadosFazenda.logoBase64 && dadosFazenda.logoBase64.startsWith('data:image')) {
+      // Injeta a imagem com inline styles forçados em pixels
+      logoContainer.innerHTML = `<img src="${dadosFazenda.logoBase64}" alt="Logo" style="width: 56px !important; height: 56px !important; max-width: 56px !important; max-height: 56px !important; object-fit: cover !important; border-radius: 50% !important; display: block !important;">`;
+    } else {
+      logoContainer.innerHTML = 'CM';
+    }
+  }
+}
+/* ==========================================================================
+   BACKUP E IMPORTAÇÃO DE DADOS
+   ========================================================================== */
+function fazerBackup() {
+  const dados = {
+    servicos: carregarServicos(),
+    areas: carregarAreas(),
+    fazenda: dadosFazenda
+  };
+
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dados));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `backup_criatorio_marques_${new Date().toISOString().split('T')[0]}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+}
+
+function importarBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const dados = JSON.parse(e.target.result);
+      if (dados.servicos) localStorage.setItem(STORAGE_KEY, JSON.stringify(dados.servicos));
+      if (dados.areas) localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(dados.areas));
+      if (dados.fazenda) localStorage.setItem('dadosFazenda', JSON.stringify(dados.fazenda));
+
+      alert("Dados importados com sucesso!");
+      location.reload();
+    } catch (err) {
+      alert("Erro ao ler o arquivo de backup. Verifique se o arquivo JSON é válido.");
+    }
+  };
+  reader.readAsText(file);
 }
