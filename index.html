@@ -8,136 +8,73 @@
 </head>
 <body>
 
-  <!-- CABEÇALHO -->
+  <!-- CABEÇALHO PRINCIPAL -->
   <header class="header-container">
-    <div class="header-left">
+    <div class="brand-box">
       <div class="brand-avatar">CM</div>
-      <div class="brand-info">
-        <div class="brand-title-row">
-          <h1>CRIATÓRIO MARQUES</h1>
-          <button type="button" class="btn-tag"><span class="icon">⚙️</span> Editar</button>
-        </div>
+      <div>
+        <h1>CRIATÓRIO MARQUES</h1>
         <p class="brand-sub">AgroGestão • Serviços da Propriedade</p>
         <p class="brand-slogan">"A VITRINE DO BÔER"</p>
       </div>
     </div>
-
+    
     <div class="header-right">
-      <span class="status-online"><span class="dot"></span> Online</span>
-      <button type="button" class="btn-tag"><span class="icon">📍</span> Áreas da Propriedade</button>
-      <button type="button" class="btn-tag"><span class="icon">🔑</span> Entrar como Admin</button>
-      
-      <!-- WIDGET CLIMA -->
-      <div class="weather-card">
-        <span class="weather-icon">☀️</span>
-        <div class="weather-info">
-          <span class="weather-temp">-- °C</span>
-          <span class="weather-status">Carregando... 📍 Belém do São Francisco - PE</span>
-        </div>
-      </div>
+      <span class="status-badge"><span class="dot"></span> Online</span>
+      <div class="weather-widget">☀️ Belém do São Francisco - PE</div>
     </div>
   </header>
 
-  <!-- PAINEL PRINCIPAL -->
   <main class="dashboard-container">
     
-    <!-- CARDS DE ESTATÍSTICAS (CLICÁVEIS PARA FILTRAR) -->
+    <!-- PAINEL DE RESUMO / FILTROS -->
     <section class="cards-grid">
-      <div class="stat-card" id="card-agendados" onclick="filtrarPorStatus('Agendado')">
-        <span class="qtd" id="cnt-agendados">0</span>
-        <span class="label">AGENDADOS</span>
+      <div class="stat-card" onclick="filtrarStatus('Todos')">
+        <span class="qtd" id="cnt-todos">0</span>
+        <span class="label">TODOS</span>
       </div>
-      <div class="stat-card" id="card-pendentes" onclick="filtrarPorStatus('Pendente')">
+      <div class="stat-card" onclick="filtrarStatus('Pendente')">
         <span class="qtd" id="cnt-pendentes">0</span>
         <span class="label">PENDENTES</span>
       </div>
-      <div class="stat-card" id="card-execucao" onclick="filtrarPorStatus('Em execução')">
+      <div class="stat-card" onclick="filtrarStatus('Em execução')">
         <span class="qtd" id="cnt-execucao">0</span>
         <span class="label">EM EXECUÇÃO</span>
       </div>
-      <div class="stat-card" id="card-concluidos" onclick="filtrarPorStatus('Concluído')">
+      <div class="stat-card" onclick="filtrarStatus('Concluído')">
         <span class="qtd" id="cnt-concluidos">0</span>
         <span class="label">CONCLUÍDOS</span>
       </div>
     </section>
 
-    <!-- BARRA DE PESQUISA E AÇÕES -->
-    <section class="actions-bar">
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="search-input" placeholder="Buscar por nome, local ou responsável..." oninput="filtrarServicos()">
-      </div>
-
-      <div class="buttons-group">
-        <button type="button" id="btn-backup" class="btn-secundario" onclick="fazerBackup()">💾 Backup</button>
-        <button type="button" id="btn-importar" class="btn-secundario" onclick="importarDados()">📊 Importar</button>
-        <button type="button" class="btn-novo-servico" onclick="abrirModalNovoServico()">+ Novo Serviço</button>
-      </div>
+    <!-- FORMULÁRIO DE NOVO SERVIÇO -->
+    <section class="card-box">
+      <h2>+ Cadastrar Novo Serviço</h2>
+      <form id="form-servico" onsubmit="adicionarServico(event)" class="form-grid">
+        <input type="text" id="nome-servico" placeholder="Nome do serviço (ex: Vacinação, Manejo, Cerca)" required>
+        <input type="text" id="local-servico" placeholder="Local / Setor (ex: Piquete 02, Curral)" required>
+        <input type="text" id="responsavel-servico" placeholder="Responsável" required>
+        <select id="status-servico">
+          <option value="Pendente">Pendente</option>
+          <option value="Em execução">Em execução</option>
+          <option value="Concluído">Concluído</option>
+        </select>
+        <button type="submit" class="btn-primary">Salvar Serviço</button>
+      </form>
     </section>
 
-    <!-- CABEÇALHO DA LISTA E CONTAINER DOS SERVIÇOS -->
-    <section class="services-section">
-      <h2 id="titulo-lista">Serviços recentes</h2>
+    <!-- LISTA DE SERVIÇOS -->
+    <section class="card-box">
+      <div class="list-header">
+        <h2 id="titulo-lista">Serviços Cadastrados</h2>
+        <input type="text" id="search-input" placeholder="🔍 Pesquisar serviço..." oninput="renderizarServicos()">
+      </div>
       <div id="lista-servicos" class="services-list">
-        <!-- Renderizado via JS -->
+        <!-- Renderizado dinamicamente via JS -->
       </div>
     </section>
 
   </main>
-
-  <!-- MODAL: JUSTIFICATIVA DE PAUSA -->
-  <div id="modal-justificativa" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      <h3>⏸️ Justificativa de Pausa</h3>
-      <p>Informe o motivo de pausar o serviço:</p>
-      <textarea id="texto-justificativa" placeholder="Ex: Falta de insumo, chuva no local, pausa para almoço..." rows="4"></textarea>
-      <div class="modal-actions">
-        <button type="button" class="btn-secundario" onclick="fecharModalJustificativa()">Cancelar</button>
-        <button type="button" class="btn-primary" onclick="confirmarPausaServico()">Confirmar Pausa</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: REAGENDAMENTO E JUSTIFICATIVA DE ATRASO -->
-  <div id="modal-reagendar" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      <h3>🔄 Justificar & Reagendar Serviço</h3>
-      <div class="form-group">
-        <label for="justificativa-atraso">Motivo do Atraso / Reagendamento:</label>
-        <textarea id="justificativa-atraso" placeholder="Informe o motivo pelo qual o serviço atrasou..." rows="3"></textarea>
-      </div>
-      <div class="form-group">
-        <label for="nova-data-agendada">Nova Data Prevista:</label>
-        <input type="date" id="nova-data-agendada">
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn-secundario" onclick="fecharModalReagendar()">Cancelar</button>
-        <button type="button" class="btn-primary" onclick="confirmarReagendamento()">Salvar Reagendamento</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: CONCLUSÃO DE SERVIÇO COM FOTOS -->
-  <div id="modal-conclusao" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      <h3>✅ Conclusão de Serviço</h3>
-      <form id="form-conclusao" onsubmit="event.preventDefault(); confirmarConclusaoServico();">
-        <div class="form-group">
-          <label for="obs-conclusao">Observações Finais / Relatório:</label>
-          <textarea id="obs-conclusao" placeholder="Descreva os detalhes da realização do serviço..." rows="3"></textarea>
-        </div>
-        <div class="form-group">
-          <label>Anexar Fotografias (Opcional):</label>
-          <input type="file" id="input-fotos-conclusao" accept="image/*" multiple onchange="carregarPreviewFotos(event)">
-          <div id="preview-imagens" class="preview-grid" style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;"></div>
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn-secundario" onclick="fecharModalConclusao()">Cancelar</button>
-          <button type="submit" class="btn-primary" style="background: #27ae60;">Concluir Serviço</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <script src="app.js"></script>
 </body>
