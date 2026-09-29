@@ -1092,3 +1092,36 @@ function importarBackup(event) {
   };
   reader.readAsText(file);
 }
+// FUNÇÃO PARA ATUALIZAR OS CARDS DE CONTAGEM
+function atualizarContadoresDashboard() {
+  const servicos = JSON.parse(localStorage.getItem('servicos')) || [];
+
+  let agendados = 0;
+  let pendentes = 0;
+  let emExecucao = 0;
+  let concluidos = 0;
+
+  servicos.forEach(servico => {
+    const status = (servico.status || '').trim().toLowerCase();
+
+    if (status === 'agendado') {
+      agendados++;
+    } else if (status === 'pendente') {
+      pendentes++;
+    } else if (status === 'em execução' || status === 'em execucao') {
+      emExecucao++;
+    } else if (status === 'concluído' || status === 'concluido') {
+      concluidos++;
+    }
+  });
+
+  const elAgendados = document.getElementById('count-agendados');
+  const elPendentes = document.getElementById('count-pendentes');
+  const elExecucao = document.getElementById('count-execucao');
+  const elConcluidos = document.getElementById('count-concluidos');
+
+  if (elAgendados) elAgendados.textContent = agendados;
+  if (elPendentes) elPendentes.textContent = pendentes;
+  if (elExecucao) elExecucao.textContent = emExecucao;
+  if (elConcluidos) elConcluidos.textContent = concluidos;
+}
