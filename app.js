@@ -1093,45 +1093,30 @@ function importarBackup(event) {
   reader.readAsText(file);
 }
 function atualizarContadoresDashboard() {
-  // 1. Tenta obter a lista de serviços da memória ou do localStorage
-  let lista = [];
-  if (typeof servicos !== 'undefined' && Array.isArray(servicos)) {
-    lista = servicos;
-  } else if (typeof listaServicos !== 'undefined' && Array.isArray(listaServicos)) {
-    lista = listaServicos;
-  } else {
-    lista = JSON.parse(localStorage.getItem('servicos')) || 
-            JSON.parse(localStorage.getItem('listaServicos')) || [];
-  }
+  // 1. Obtém os serviços salvos (ajuste a chave do localStorage se for diferente)
+  const servicos = JSON.parse(localStorage.getItem('servicos')) || window.servicos || [];
 
   let agendados = 0;
   let pendentes = 0;
   let emExecucao = 0;
   let concluidos = 0;
 
-  // 2. Percorre e classifica cada serviço
-  lista.forEach(item => {
-    // Normaliza o texto do status
-    const statusTxt = String(item.status || item.estado || '').trim().toLowerCase();
+  // 2. Conta os serviços por estado
+  servicos.forEach(s => {
+    const status = (s.status || s.estado || '').toString().toLowerCase().trim();
     
-    // Verifica se possui data agendada
-    const temAgendamento = item.dataAgendada || item.data_agendada || item.agendado;
-
-    if (statusTxt.includes('agendad') || (statusTxt === 'pendente' && temAgendamento)) {
+    if (status.includes('agendad')) {
       agendados++;
-    } else if (statusTxt.includes('pendent')) {
+    } else if (status.includes('pendent')) {
       pendentes++;
-    } else if (statusTxt.includes('execu') || statusTxt.includes('andament')) {
+    } else if (status.includes('execu')) {
       emExecucao++;
-    } else if (statusTxt.includes('conclu') || statusTxt.includes('finaliz')) {
+    } else if (status.includes('conclu')) {
       concluidos++;
     }
   });
 
-  // 3. Imprime no console do navegador para podermos inspecionar se necessário
-  console.log("Contagem calculada:", { agendados, pendentes, emExecucao, concluidos, totalItens: lista.length });
-
-  // 4. Atualiza os elementos no DOM
+  // 3. Atualiza os elementos pelo ID (index.html fornecido)
   const elAgendados = document.getElementById('count-agendados');
   const elPendentes = document.getElementById('count-pendentes');
   const elExecucao = document.getElementById('count-execucao');
@@ -1141,4 +1126,14 @@ function atualizarContadoresDashboard() {
   if (elPendentes) elPendentes.textContent = pendentes;
   if (elExecucao) elExecucao.textContent = emExecucao;
   if (elConcluidos) elConcluidos.textContent = concluidos;
-}
+
+  // 4. Fallback: Se não encontrou por ID, atualiza diretamente as classes das caixas
+  if (!elAgendados) {
+    const cards = document.querySelectorAll('.cards-grid .card .num');
+    if (cards.length >= 4) {
+      cards[0].textContent = agendados;
+      cards[1].textContent = pendentes;
+      cards[2].textContent = emExecucao;
+      cards[3].textContent = concluidos;
+    }
+  }
