@@ -1092,30 +1092,16 @@ function importarBackup(event) {
   };
   reader.readAsText(file);
 }
-// FUNÇÃO AUTOMÁTICA DE ATUALIZAÇÃO DOS CARDS
 function atualizarContadoresDashboard() {
-  // Tenta buscar a lista de serviços de variadas formas possíveis no sistema
+  // 1. Tenta obter a lista de serviços da memória ou do localStorage
   let lista = [];
-
   if (typeof servicos !== 'undefined' && Array.isArray(servicos)) {
     lista = servicos;
   } else if (typeof listaServicos !== 'undefined' && Array.isArray(listaServicos)) {
     lista = listaServicos;
   } else {
-    // Busca em chaves comuns do localStorage
-    const chaves = ['servicos', 'listaServicos', 'agro_servicos', 'dadosServicos'];
-    for (let chave of chaves) {
-      const dados = localStorage.getItem(chave);
-      if (dados) {
-        try {
-          const parsed = JSON.parse(dados);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            lista = parsed;
-            break;
-          }
-        } catch(e) {}
-      }
-    }
+    lista = JSON.parse(localStorage.getItem('servicos')) || 
+            JSON.parse(localStorage.getItem('listaServicos')) || [];
   }
 
   let agendados = 0;
@@ -1123,22 +1109,29 @@ function atualizarContadoresDashboard() {
   let emExecucao = 0;
   let concluidos = 0;
 
+  // 2. Percorre e classifica cada serviço
   lista.forEach(item => {
-    // Procura a palavra do status em qualquer propriedade do objeto
-    const statusTxt = String(item.status || item.estado || item.situacao || '').toLowerCase();
+    // Normaliza o texto do status
+    const statusTxt = String(item.status || item.estado || '').trim().toLowerCase();
+    
+    // Verifica se possui data agendada
+    const temAgendamento = item.dataAgendada || item.data_agendada || item.agendado;
 
-    if (statusTxt.includes('agendad')) {
+    if (statusTxt.includes('agendad') || (statusTxt === 'pendente' && temAgendamento)) {
       agendados++;
     } else if (statusTxt.includes('pendent')) {
       pendentes++;
-    } else if (statusTxt.includes('execu') || statusTxt.includes('andamento')) {
+    } else if (statusTxt.includes('execu') || statusTxt.includes('andament')) {
       emExecucao++;
     } else if (statusTxt.includes('conclu') || statusTxt.includes('finaliz')) {
       concluidos++;
     }
   });
 
-  // Atualiza a tela
+  // 3. Imprime no console do navegador para podermos inspecionar se necessário
+  console.log("Contagem calculada:", { agendados, pendentes, emExecucao, concluidos, totalItens: lista.length });
+
+  // 4. Atualiza os elementos no DOM
   const elAgendados = document.getElementById('count-agendados');
   const elPendentes = document.getElementById('count-pendentes');
   const elExecucao = document.getElementById('count-execucao');
