@@ -1,4 +1,4 @@
-const CACHE_NAME = 'criatorio-marques-v88';
+const CACHE_NAME = 'criatorio-marques-v89';
 const ASSETS = [
   './',
   './index.html',
@@ -32,5 +32,5 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => response || fetch(event.request))
-  );
+  )
 });
