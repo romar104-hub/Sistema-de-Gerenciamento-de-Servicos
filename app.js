@@ -1092,29 +1092,53 @@ function importarBackup(event) {
   };
   reader.readAsText(file);
 }
-// FUNÇÃO PARA ATUALIZAR OS CARDS DE CONTAGEM
+// FUNÇÃO AUTOMÁTICA DE ATUALIZAÇÃO DOS CARDS
 function atualizarContadoresDashboard() {
-  const servicos = JSON.parse(localStorage.getItem('servicos')) || [];
+  // Tenta buscar a lista de serviços de variadas formas possíveis no sistema
+  let lista = [];
+
+  if (typeof servicos !== 'undefined' && Array.isArray(servicos)) {
+    lista = servicos;
+  } else if (typeof listaServicos !== 'undefined' && Array.isArray(listaServicos)) {
+    lista = listaServicos;
+  } else {
+    // Busca em chaves comuns do localStorage
+    const chaves = ['servicos', 'listaServicos', 'agro_servicos', 'dadosServicos'];
+    for (let chave of chaves) {
+      const dados = localStorage.getItem(chave);
+      if (dados) {
+        try {
+          const parsed = JSON.parse(dados);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            lista = parsed;
+            break;
+          }
+        } catch(e) {}
+      }
+    }
+  }
 
   let agendados = 0;
   let pendentes = 0;
   let emExecucao = 0;
   let concluidos = 0;
 
-  servicos.forEach(servico => {
-    const status = (servico.status || '').trim().toLowerCase();
+  lista.forEach(item => {
+    // Procura a palavra do status em qualquer propriedade do objeto
+    const statusTxt = String(item.status || item.estado || item.situacao || '').toLowerCase();
 
-    if (status === 'agendado') {
+    if (statusTxt.includes('agendad')) {
       agendados++;
-    } else if (status === 'pendente') {
+    } else if (statusTxt.includes('pendent')) {
       pendentes++;
-    } else if (status === 'em execução' || status === 'em execucao') {
+    } else if (statusTxt.includes('execu') || statusTxt.includes('andamento')) {
       emExecucao++;
-    } else if (status === 'concluído' || status === 'concluido') {
+    } else if (statusTxt.includes('conclu') || statusTxt.includes('finaliz')) {
       concluidos++;
     }
   });
 
+  // Atualiza a tela
   const elAgendados = document.getElementById('count-agendados');
   const elPendentes = document.getElementById('count-pendentes');
   const elExecucao = document.getElementById('count-execucao');
