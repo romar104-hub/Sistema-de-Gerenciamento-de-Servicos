@@ -1093,30 +1093,33 @@ function importarBackup(event) {
   reader.readAsText(file);
 }
 function atualizarContadoresDashboard() {
-  // 1. Obtém os serviços salvos (ajuste a chave do localStorage se for diferente)
-  const servicos = JSON.parse(localStorage.getItem('servicos')) || window.servicos || [];
+  // Busca os serviços salvos no localStorage
+  const servicos = JSON.parse(localStorage.getItem('servicos')) || [];
 
   let agendados = 0;
   let pendentes = 0;
   let emExecucao = 0;
   let concluidos = 0;
 
-  // 2. Conta os serviços por estado
   servicos.forEach(s => {
-    const status = (s.status || s.estado || '').toString().toLowerCase().trim();
+    // Normaliza o texto do status para minúsculas para evitar erros de digitação/maiúsculas
+    const status = (s.status || s.estado || '').toString().trim().toLowerCase();
     
-    if (status.includes('agendad')) {
+    // Verifica também se tem data agendada caso o status principal seja outro
+    const temAgendamento = s.dataAgendada || s.data_agendada;
+
+    if (status.includes('agendad') || (status === 'pendente' && temAgendamento)) {
       agendados++;
     } else if (status.includes('pendent')) {
       pendentes++;
-    } else if (status.includes('execu')) {
+    } else if (status.includes('execu') || status.includes('andament')) {
       emExecucao++;
-    } else if (status.includes('conclu')) {
+    } else if (status.includes('conclu') || status.includes('finaliz')) {
       concluidos++;
     }
   });
 
-  // 3. Atualiza os elementos pelo ID (index.html fornecido)
+  // Atualiza os números nos elementos do Dashboard
   const elAgendados = document.getElementById('count-agendados');
   const elPendentes = document.getElementById('count-pendentes');
   const elExecucao = document.getElementById('count-execucao');
@@ -1126,6 +1129,7 @@ function atualizarContadoresDashboard() {
   if (elPendentes) elPendentes.textContent = pendentes;
   if (elExecucao) elExecucao.textContent = emExecucao;
   if (elConcluidos) elConcluidos.textContent = concluidos;
+}
 
   // 4. Fallback: Se não encontrou por ID, atualiza diretamente as classes das caixas
   if (!elAgendados) {
