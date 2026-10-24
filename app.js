@@ -516,6 +516,7 @@ function renderizarServicos(servicos) {
     acoesHTML += '</div>';
 
     const classeBadge = (s.status || '').toLowerCase().replace(' ', '-').replace('ú', 'u');
+    const corPrioridade = norm(s.prioridade) === 'alta' ? '#dc2626' : '#000000';
 
     return `
     <div class="service-card" style="background: #fff; padding: 14px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
@@ -524,7 +525,7 @@ function renderizarServicos(servicos) {
         <span class="badge ${esc(classeBadge)}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${esc(s.status)}</span>
       </div>
       <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${esc(s.local)} | 👤 ${esc(s.responsavel)} | 📅 Criado: ${esc(s.data || s.dataCriacao || 'N/A')}</p>
-      <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0;">Prioridade: <strong>${esc(s.prioridade || 'Normal')}</strong></p>
+      <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0; color: ${corPrioridade};">Prioridade: <strong style="color: ${corPrioridade};">${esc(s.prioridade || 'Normal')}</strong></p>
 
       ${emAtraso ? `
         <div style="background: #fff5f5; border: 1px solid #feb2b2; padding: 8px 12px; border-radius: 6px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; border-left: 4px solid #e74c3c;">
