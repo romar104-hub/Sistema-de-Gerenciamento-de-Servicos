@@ -263,8 +263,16 @@ function carregarServicos() {
 function salvarServicos(servicos) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(servicos));
-    atualizarDashboard();
-    filtrarServicos();
+    
+    // Corrige chamando os nomes reais das funções do seu sistema
+    if (typeof atualizarContadoresDashboard === 'function') {
+      atualizarContadoresDashboard();
+    }
+    if (typeof filtrarServicos === 'function') {
+      filtrarServicos();
+    } else if (typeof renderizarServicos === 'function') {
+      renderizarServicos();
+    }
   } catch (e) {
     alert("Atenção: Limite de armazenamento local excedido! Tente remover serviços antigos ou fotos.");
   }
