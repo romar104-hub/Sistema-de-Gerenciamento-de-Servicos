@@ -364,19 +364,18 @@ function salvarServicoFormulario(event) {
     informacaoAgendamento = `${dataFormatada}${horaAgendadaVal ? ' às ' + horaAgendadaVal : ''}`;
   }
 
-  // 1. Carrega a lista atual com segurança
+  // 1. Carrega os serviços usando exatamente a chave correta do seu projeto
   let servicos = [];
   try {
-    if (typeof carregarServicos === 'function') {
-      servicos = carregarServicos() || [];
-    } else {
-      servicos = JSON.parse(localStorage.getItem('servicos')) || [];
+    const dados = localStorage.getItem('criatorio_marques_servicos');
+    if (dados) {
+      servicos = JSON.parse(dados);
     }
-  } catch(e) {
+  } catch (e) {
     servicos = [];
   }
 
-  // 2. Cria o novo objeto de serviço
+  // 2. Cria o novo serviço
   const novoServico = {
     id: Date.now(),
     nome: nome,
@@ -396,21 +395,29 @@ function salvarServicoFormulario(event) {
   // 3. Adiciona no início da lista
   servicos.unshift(novoServico);
 
-  // 4. Salva no localStorage de forma direta e segura
+  // 4. Salva utilizando a chave exata do seu sistema
   try {
-    localStorage.setItem('servicos', JSON.stringify(servicos));
-  } catch(e) {
-    console.error("Erro ao salvar no localStorage", e);
+    localStorage.setItem('criatorio_marques_servicos', JSON.stringify(servicos));
+  } catch (e) {
+    console.error("Erro ao salvar:", e);
   }
 
-  // 5. Limpa o formulário de cadastro
+  // 5. Limpa o formulário e fecha o modal
   const form = document.getElementById('form-servico');
   if (form) form.reset();
 
-  // 6. Fecha o modal de cadastro
   if (typeof fecharModal === 'function') {
     fecharModal();
   }
+
+  // 6. Atualiza imediatamente a tela e os contadores
+  if (typeof renderizarServicos === 'function') {
+    renderizarServicos();
+  }
+  if (typeof atualizarContadoresDashboard === 'function') {
+    atualizarContadoresDashboard();
+  }
+}
 
   // 7. Renderiza a tela imediatamente forçando a leitura da lista atualizada
   if (typeof renderizarServicos === 'function') {
