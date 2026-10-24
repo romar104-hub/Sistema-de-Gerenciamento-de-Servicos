@@ -1141,3 +1141,40 @@ function atualizarContadoresDashboard() {
       cards[3].textContent = concluidos;
     }
   }
+function atualizarContadoresDashboard() {
+  const servicos = JSON.parse(localStorage.getItem('servicos')) || [];
+
+  let agendados = 0;
+  let pendentes = 0;
+  let emExecucao = 0;
+  let concluidos = 0;
+
+  servicos.forEach(s => {
+    const status = (s.status || s.estado || '').toString().trim().toLowerCase();
+    
+    if (status.includes('agendad')) {
+      agendados++;
+    } else if (status.includes('pendent')) {
+      pendentes++;
+    } else if (status.includes('execu') || status.includes('andament')) {
+      emExecucao++;
+    } else if (status.includes('conclu') || status.includes('finaliz')) {
+      concluidos++;
+    }
+  });
+
+  const elAgendados = document.getElementById('count-agendados');
+  const elPendentes = document.getElementById('count-pendentes');
+  const elExecucao = document.getElementById('count-execucao');
+  const elConcluidos = document.getElementById('count-concluidos');
+
+  if (elAgendados) elAgendados.textContent = agendados;
+  if (elPendentes) elPendentes.textContent = pendentes;
+  if (elExecucao) elExecucao.textContent = emExecucao;
+  if (elConcluidos) elConcluidos.textContent = concluidos;
+}
+
+// Garante que a função roda automaticamente assim que a página termina de carregar
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(atualizarContadoresDashboard, 200);
+});
