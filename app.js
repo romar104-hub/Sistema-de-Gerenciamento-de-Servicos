@@ -383,6 +383,17 @@ function salvarServicoFormulario(event) {
 
   servicos.unshift(novoServico);
   salvarServicos(servicos);
+
+  // Limpa o formulário de cadastro
+  const formulario = document.getElementById('form-servico');
+  if (formulario) formulario.reset();
+
+  // ATUALIZA A TELA E OS CONTADORES IMEDIATAMENTE
+  renderizarServicos();
+  if (typeof atualizarContadoresDashboard === 'function') {
+    atualizarContadoresDashboard();
+  }
+
   fecharModal();
 }
 
