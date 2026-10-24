@@ -1140,22 +1140,6 @@ function atualizarContadoresDashboard() {
     });
   } catch (e) {}
 
-  // 2. FALLBACK INTELIGENTE: Se o contador vier a zero, conta diretamente os elementos visíveis na lista (#lista-servicos)
-  if (agendados === 0 && pendentes === 0 && emExecucao === 0 && concluidos === 0) {
-    const containerLista = document.getElementById('lista-servicos');
-    if (containerLista) {
-      containerLista.querySelectorAll('*').forEach(el => {
-        if (el.children.length === 0) {
-          const txt = el.textContent.trim().toUpperCase();
-          if (txt === 'AGENDADO') agendados++;
-          if (txt === 'PENDENTE') pendentes++;
-          if (txt === 'EM EXECUÇÃO' || txt === 'EM EXECUCAO') emExecucao++;
-          if (txt === 'CONCLUÍDO' || txt === 'CONCLUIDO') concluidos++;
-        }
-      });
-    }
-  }
-
   // 3. Atualiza os elementos visuais do Dashboard no topo
   const elA = document.getElementById('count-agendados');
   const elP = document.getElementById('count-pendentes');
