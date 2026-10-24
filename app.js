@@ -542,6 +542,12 @@ function renderizarServicos(servicos) {
   `;
   }).join('');
 }
+function renderizarServicos() {
+  // ... todo o código que desenha os cards na tela ...
+
+  // ADICIONE ESTA LINHA AQUI NO FINAL DA FUNÇÃO DE RENDERIZAÇÃO:
+  atualizarContadoresDashboard();
+}
 
 /* ==========================================================================
    AÇÕES DOS SERVIÇOS (INICIAR, PAUSAR, CONCLUIR, EXCLUIR)
