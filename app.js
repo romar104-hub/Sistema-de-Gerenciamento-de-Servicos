@@ -1109,29 +1109,40 @@ function importarBackup(event) {
     }
   }
 function atualizarContadoresDashboard() {
-  // Busca os serviços salvos no localStorage usando a chave padrão do seu sistema
-  const servicos = JSON.parse(localStorage.getItem('servicos')) || [];
+  // 1. Obtém os serviços salvos de forma segura
+  let servicos = [];
+  try {
+    const dados = localStorage.getItem('servicos');
+    if (dados) {
+      servicos = JSON.parse(dados);
+    }
+  } catch (e) {
+    console.error("Erro ao ler serviços do localStorage:", e);
+  }
 
   let agendados = 0;
   let pendentes = 0;
   let emExecucao = 0;
   let concluidos = 0;
 
-  servicos.forEach(s => {
-    const status = (s.status || s.estado || '').toString().trim().toLowerCase();
-    
-    if (status.includes('agendad')) {
-      agendados++;
-    } else if (status.includes('pendent')) {
-      pendentes++;
-    } else if (status.includes('execu') || status.includes('andament')) {
-      emExecucao++;
-    } else if (status.includes('conclu') || status.includes('finaliz')) {
-      concluidos++;
-    }
-  });
+  // 2. Conta os status corretamente independentemente de maiúsculas/minúsculas
+  if (Array.isArray(servicos)) {
+    servicos.forEach(s => {
+      const status = (s.status || s.estado || '').toString().trim().toLowerCase();
+      
+      if (status.includes('agendad')) {
+        agendados++;
+      } else if (status.includes('pendent')) {
+        pendentes++;
+      } else if (status.includes('execu') || status.includes('andament')) {
+        emExecucao++;
+      } else if (status.includes('conclu') || status.includes('finaliz')) {
+        concluidos++;
+      }
+    });
+  }
 
-  // Atualiza estritamente os números dos cards no topo
+  // 3. Atualiza os números nos cards do topo do painel
   const elA = document.getElementById('count-agendados');
   const elP = document.getElementById('count-pendentes');
   const elE = document.getElementById('count-execucao');
