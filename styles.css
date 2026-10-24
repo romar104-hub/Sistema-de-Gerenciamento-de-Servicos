@@ -520,3 +520,25 @@ span.prioridade-baixa,
   color: #40c4ff !important;
   font-weight: 800 !important;
 }
+
+/* ================= MODAL DE ÁREAS (formulário em fundo claro) ================= */
+#modal-areas form .form-group label {
+  color: #000000;
+  font-weight: 700;
+}
+
+#modal-areas form .form-group input[type="text"] {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #cbd5e0;
+}
+
+#modal-areas form .form-group input[type="text"]::placeholder {
+  color: #64748b;
+}
+
+#modal-areas form .form-group input[type="file"] {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #cbd5e0;
+}
