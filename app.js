@@ -24,6 +24,7 @@ let servicoReagendarId = null;
 let imagensTempConclusao = [];
 let filtroStatusAtual = null;
 let logoTempBase64 = '';
+let fotoTempAreaBase64 = '';
 
 let dadosFazenda = { ...FAZENDA_PADRAO };
 try {
@@ -199,11 +200,11 @@ setInterval(buscarClimaBelem, 15 * 60 * 1000);
    ========================================================================== */
 function carregarAreas() {
   const padrao = [
-    { id: 1, nome: 'Sede / Escritório' },
-    { id: 2, nome: 'Baia dos Reprodutores Boer' },
-    { id: 3, nome: 'Piquete 01' },
-    { id: 4, nome: 'Piquete 02' },
-    { id: 5, nome: 'Área de Matrizes / Maternidade' }
+    { id: 1, nome: 'Sede / Escritório', foto: '' },
+    { id: 2, nome: 'Baia dos Reprodutores Boer', foto: '' },
+    { id: 3, nome: 'Piquete 01', foto: '' },
+    { id: 4, nome: 'Piquete 02', foto: '' },
+    { id: 5, nome: 'Área de Matrizes / Maternidade', foto: '' }
   ];
   try {
     const dados = localStorage.getItem(STORAGE_KEY_AREAS);
@@ -217,12 +218,17 @@ function salvarAreas(areas) {
   try {
     localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
   } catch (e) {
-    alert('Não foi possível salvar as áreas (armazenamento cheio).');
+    alert('Não foi possível salvar as áreas (armazenamento cheio). Tente uma foto menor.');
+    return false;
   }
   atualizarSelectAreasServico();
+  return true;
 }
 
 function abrirModalAreas() {
+  fotoTempAreaBase64 = '';
+  const prev = document.getElementById('preview-foto-area');
+  if (prev) prev.innerHTML = '';
   renderizarListaAreas();
   mostrarModal('modal-areas');
 }
@@ -231,19 +237,54 @@ function fecharModalAreas() {
   esconderModal('modal-areas');
 }
 
-function adicionarNovaArea(event) {
+function carregarFotoArea(event) {
+  const file = event.target.files[0];
+  const prev = document.getElementById('preview-foto-area');
+  fotoTempAreaBase64 = '';
+  if (prev) prev.innerHTML = '';
+  if (!file) return;
+
+  comprimirImagem(file, 800, 800, 0.8, function (base64) {
+    fotoTempAreaBase64 = base64;
+    if (prev) {
+      prev.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = base64;
+      img.style.cssText = 'width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #ccc;';
+      prev.appendChild(img);
+    }
+  });
+}
+
+function salvarNovaArea(event) {
   if (event) event.preventDefault();
-  const input = document.getElementById('nome-nova-area');
+  const input = document.getElementById('nome-area') || document.getElementById('nome-nova-area');
   if (!input) return;
+
   const nome = input.value.trim();
   if (!nome) return alert('Informe o nome da área.');
 
   const areas = carregarAreas();
-  areas.push({ id: Date.now(), nome });
-  salvarAreas(areas);
+  if (areas.some(a => norm(a.nome) === norm(nome))) {
+    return alert('Essa área já está cadastrada.');
+  }
+
+  areas.push({ id: Date.now(), nome, foto: fotoTempAreaBase64 || '' });
+  if (!salvarAreas(areas)) return;
+
   input.value = '';
+  fotoTempAreaBase64 = '';
+  const prev = document.getElementById('preview-foto-area');
+  if (prev) prev.innerHTML = '';
+  if (event && event.target && event.target.querySelector) {
+    const arquivo = event.target.querySelector('input[type="file"]');
+    if (arquivo) arquivo.value = '';
+  }
   renderizarListaAreas();
 }
+
+// Nome antigo, mantido por compatibilidade
+const adicionarNovaArea = salvarNovaArea;
 
 function removerArea(id) {
   if (!exigirAdmin()) return;
@@ -255,31 +296,34 @@ function removerArea(id) {
 }
 
 function renderizarListaAreas() {
-  const container = document.getElementById('lista-areas-container');
+  const container = document.getElementById('lista-areas-cadastradas') ||
+                    document.getElementById('lista-areas-container');
   if (!container) return;
   const areas = carregarAreas();
 
   if (areas.length === 0) {
-    container.innerHTML = '<p style="color: #7f8c8d; font-size: 0.85rem;">Nenhuma área cadastrada.</p>';
+    container.innerHTML = '<p style="color: #d8f3dc; font-size: 0.85rem;">Nenhuma área cadastrada.</p>';
     return;
   }
 
   container.innerHTML = areas.map(a => `
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #e2e8f0;">
-      <span style="font-size: 0.9rem; font-weight: 500; color: #1e293b;">📍 ${esc(a.nome)}</span>
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        ${a.foto ? `<img src="${esc(a.foto)}" onclick="ampliarImagem(this.src)" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; cursor: pointer;">` : ''}
+        <span style="font-size: 0.9rem; font-weight: 500; color: #1e293b;">📍 ${esc(a.nome)}</span>
+      </div>
       ${perfilAtual === 'admin' ? `<button onclick="removerArea(${Number(a.id)})" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; cursor: pointer;">Excluir</button>` : ''}
     </div>
   `).join('');
 }
 
+// O campo "Local" do formulário é um <input> com <datalist>; preenchemos as sugestões
 function atualizarSelectAreasServico() {
-  const select = document.getElementById('local-servico');
-  if (!select) return;
-  const valorAtual = select.value;
   const areas = carregarAreas();
-  select.innerHTML = '<option value="">Selecione o local...</option>' +
-    areas.map(a => `<option value="${esc(a.nome)}">${esc(a.nome)}</option>`).join('');
-  select.value = valorAtual;
+  const lista = document.getElementById('lista-areas-autocomplete');
+  if (lista) {
+    lista.innerHTML = areas.map(a => `<option value="${esc(a.nome)}"></option>`).join('');
+  }
 }
 
 /* ==========================================================================
@@ -899,60 +943,56 @@ function confirmarEdicaoConclusao(event) {
    IMAGENS AMPLIADAS, RELATÓRIO E WHATSAPP
    ========================================================================== */
 function ampliarImagem(src) {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px; box-sizing: border-box;';
-  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
-
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position: relative; max-width: 90%; max-height: 90%;';
-
-  const img = document.createElement('img');
+  const modal = document.getElementById('modal-zoom-imagem');
+  const img = document.getElementById('img-ampliada');
+  if (!modal || !img) return;
   img.src = src;
-  img.style.cssText = 'max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);';
+  modal.style.display = 'flex';
+}
 
-  const btn = document.createElement('button');
-  btn.textContent = '✕';
-  btn.style.cssText = 'position: absolute; top: -10px; right: -10px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; cursor: pointer; font-size: 16px;';
-  btn.onclick = () => overlay.remove();
-
-  wrap.appendChild(img);
-  wrap.appendChild(btn);
-  overlay.appendChild(wrap);
-  document.body.appendChild(overlay);
+function fecharZoomImagem() {
+  const modal = document.getElementById('modal-zoom-imagem');
+  const img = document.getElementById('img-ampliada');
+  if (modal) modal.style.display = 'none';
+  if (img) img.removeAttribute('src');
 }
 
 function abrirRelatorioCompleto(id) {
   const s = carregarServicos().find(item => Number(item.id) === Number(id));
-  if (!s) return;
+  const conteudo = document.getElementById('conteudo-relatorio');
+  if (!s || !conteudo) return;
 
-  const modal = document.createElement('div');
-  modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 15px; box-sizing: border-box;';
+  const historico = s.historicoExecucao || [];
 
-  modal.innerHTML = `
-    <div style="background: white; border-radius: 12px; padding: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.2);">
-      <h3 style="margin-top: 0; color: #1b3b22; border-bottom: 2px solid #2e5a3c; padding-bottom: 8px;">📋 RELATÓRIO DE SERVIÇO</h3>
-      <p><strong>Serviço:</strong> ${esc(s.nome)}</p>
-      <p><strong>Local:</strong> ${esc(s.local)}</p>
-      <p><strong>Responsável:</strong> ${esc(s.responsavel)}</p>
-      <p><strong>Prioridade:</strong> ${esc(s.prioridade || 'Normal')}</p>
-      <p><strong>Data de Criação:</strong> ${esc(s.data || 'N/A')}</p>
-      ${s.observacoes ? `<p><strong>Observações:</strong> ${esc(s.observacoes)}</p>` : ''}
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 12px 0;">
-      <p><strong>Relatório de Conclusão:</strong></p>
-      <div style="background: #f8fafc; padding: 10px; border-radius: 6px; border-left: 4px solid #27ae60; font-size: 0.9rem;">${esc(s.conclusaoInfo || 'Sem descrição.')}</div>
-      ${s.fotos && s.fotos.length > 0 ? `
-        <p style="margin-top: 12px;"><strong>Fotos Registradas:</strong></p>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+  conteudo.innerHTML = `
+    <p><strong>Serviço:</strong> ${esc(s.nome)}</p>
+    <p><strong>Local:</strong> ${esc(s.local)}</p>
+    <p><strong>Responsável:</strong> ${esc(s.responsavel)}</p>
+    <p><strong>Prioridade:</strong> ${esc(s.prioridade || 'Normal')}</p>
+    <p><strong>Data de Criação:</strong> ${esc(s.data || 'N/A')}</p>
+    ${s.observacoes ? `<p><strong>Observações:</strong> ${esc(s.observacoes)}</p>` : ''}
+    ${historico.length ? `
+      <div>
+        <strong>Registros de Execução:</strong>
+        ${historico.map(h => `<div style="font-size: 0.85rem; margin-top: 3px;">${esc(h.icone || '•')} ${esc(h.acao)}: ${esc(h.dataHora || h.data)}${h.detalhes ? ` <span style="color: #ffb703;">(${esc(h.detalhes)})</span>` : ''}</div>`).join('')}
+      </div>` : ''}
+    <div>
+      <strong>Relatório de Conclusão:</strong>
+      <div style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 6px; border-left: 4px solid #27ae60; font-size: 0.9rem; margin-top: 4px;">${esc(s.conclusaoInfo || 'Sem descrição.')}</div>
+    </div>
+    ${s.fotos && s.fotos.length > 0 ? `
+      <div>
+        <strong>Fotos Registradas:</strong>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
           ${s.fotos.map(f => `<img src="${esc(f)}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; cursor: pointer;" onclick="ampliarImagem(this.src)">`).join('')}
-        </div>` : ''}
-      <div style="margin-top: 20px; text-align: right;">
-        <button data-fechar style="background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Fechar</button>
-      </div>
-    </div>`;
+        </div>
+      </div>` : ''}
+  `;
+  mostrarModal('modal-relatorio');
+}
 
-  modal.onclick = e => { if (e.target === modal) modal.remove(); };
-  modal.querySelector('[data-fechar]').onclick = () => modal.remove();
-  document.body.appendChild(modal);
+function fecharModalRelatorio() {
+  esconderModal('modal-relatorio');
 }
 
 function enviarRelatorioWhatsApp(id) {
@@ -973,6 +1013,18 @@ function enviarRelatorioWhatsApp(id) {
 /* ==========================================================================
    PERFIL DA FAZENDA E LOGO
    ========================================================================== */
+function mostrarPreviewLogo(src) {
+  const box = document.getElementById('preview-logo-box');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!src) return;
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = 'Pré-visualização da logo';
+  img.style.cssText = 'width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid #d4af37; margin-top: 8px;';
+  box.appendChild(img);
+}
+
 function abrirModalPerfilFazenda(primeiraVez = false) {
   const modal = document.getElementById('modal-perfil-fazenda');
   if (!modal) return;
@@ -981,19 +1033,10 @@ function abrirModalPerfilFazenda(primeiraVez = false) {
   set('input-nome-fazenda', dadosFazenda.nome || '');
   set('input-slogan-fazenda', dadosFazenda.slogan || '');
   set('input-cidade-fazenda', dadosFazenda.cidade || '');
+  set('input-logo-fazenda', '');
 
   logoTempBase64 = dadosFazenda.logoBase64 || '';
-
-  const preview = document.getElementById('preview-logo-fazenda');
-  if (preview) {
-    if (dadosFazenda.logoBase64) {
-      preview.src = dadosFazenda.logoBase64;
-      preview.style.display = 'block';
-    } else {
-      preview.style.display = 'none';
-      preview.removeAttribute('src');
-    }
-  }
+  mostrarPreviewLogo(logoTempBase64);
 
   modal.style.display = 'flex';
 }
@@ -1003,19 +1046,18 @@ function fecharModalPerfilFazenda() {
   logoTempBase64 = '';
 }
 
-function carregarLogoFazenda(event) {
+function carregarPreviewLogo(event) {
   const file = event.target.files[0];
   if (!file) return;
 
   comprimirImagem(file, 400, 400, 0.85, function (base64) {
     logoTempBase64 = base64;
-    const preview = document.getElementById('preview-logo-fazenda');
-    if (preview) {
-      preview.src = base64;
-      preview.style.display = 'block';
-    }
+    mostrarPreviewLogo(base64);
   });
 }
+
+// Nome antigo, mantido por compatibilidade
+const carregarLogoFazenda = carregarPreviewLogo;
 
 function salvarPerfilFazenda(event) {
   if (event) event.preventDefault();
@@ -1053,6 +1095,9 @@ function carregarDadosFazendaNaTela() {
   if (titulo) titulo.innerText = dadosFazenda.nome || FAZENDA_PADRAO.nome;
   if (slogan) slogan.innerText = `"${dadosFazenda.slogan || FAZENDA_PADRAO.slogan}"`;
 
+  const cidade = document.getElementById('header-cidade');
+  if (cidade && dadosFazenda.cidade) cidade.innerText = `📍 ${dadosFazenda.cidade}`;
+
   if (logoContainer) {
     if (dadosFazenda.logoBase64 && dadosFazenda.logoBase64.startsWith('data:image')) {
       logoContainer.innerHTML = '';
@@ -1063,34 +1108,60 @@ function carregarDadosFazendaNaTela() {
       logoContainer.appendChild(img);
       logoContainer.style.padding = '0';
       logoContainer.style.overflow = 'hidden';
-    } else {
-      logoContainer.innerHTML = 'CM';
     }
+    // sem logo salva: mantém a imagem logo.png (ou "CM") definida no HTML
   }
 }
 
 /* ==========================================================================
    BACKUP E IMPORTAÇÃO
    ========================================================================== */
-function fazerBackup() {
-  if (!exigirAdmin()) return;
+async function fazerBackup() {
+  try {
+    const dados = {
+      servicos: carregarServicos(),
+      areas: carregarAreas(),
+      fazenda: dadosFazenda
+    };
 
-  const dados = {
-    servicos: carregarServicos(),
-    areas: carregarAreas(),
-    fazenda: dadosFazenda
-  };
+    const json = JSON.stringify(dados);
+    const nomeArquivo = `backup_criatorio_marques_${hojeISO()}.json`;
+    const blob = new Blob([json], { type: 'application/json' });
 
-  const blob = new Blob([JSON.stringify(dados)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `backup_criatorio_marques_${hojeISO()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+    // iPhone/iPad: o atributo "download" costuma ser ignorado, então usa o menu de compartilhar
+    const ehIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (ehIOS && navigator.canShare) {
+      const arquivo = new File([blob], nomeArquivo, { type: 'application/json' });
+      if (navigator.canShare({ files: [arquivo] })) {
+        await navigator.share({ files: [arquivo], title: 'Backup Criatório Marques' });
+        return;
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nomeArquivo;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+
+    // Não revogar a URL na hora: em alguns navegadores isso cancela o download
+    setTimeout(() => {
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 1500);
+  } catch (erro) {
+    if (erro && erro.name === 'AbortError') return; // usuário cancelou o compartilhamento
+    console.error('Erro ao gerar backup:', erro);
+    alert('Não foi possível gerar o backup: ' + (erro && erro.message ? erro.message : erro));
+  }
 }
+
+// Nomes alternativos, caso o botão no HTML use outro nome de função
+const exportarBackup = fazerBackup;
+const baixarBackup = fazerBackup;
+const gerarBackup = fazerBackup;
 
 function importarBackup(event) {
   if (!exigirAdmin()) return;
