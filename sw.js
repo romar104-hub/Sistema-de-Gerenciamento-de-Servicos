@@ -1,4 +1,4 @@
-const CACHE_NAME = 'criatorio-marques-v103';
+const CACHE_NAME = 'criatorio-marques-v104';
 const ASSETS = [
   './',
   './index.html',
