@@ -1285,3 +1285,47 @@ function importarBackup(event) {
   };
   reader.readAsText(file);
 }
+
+/* ==========================================================================
+   PWA (INSTALAÇÃO E FUNCIONAMENTO OFFLINE)
+   ========================================================================== */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(erro => {
+      console.warn('Não foi possível ativar o modo offline:', erro);
+    });
+  });
+}
+
+let eventoInstalacaoPWA = null;
+
+function removerBotaoInstalar() {
+  const btn = document.getElementById('btn-instalar-pwa');
+  if (btn) btn.remove();
+}
+
+// Android/Chrome: mostra um botão "Instalar app" quando a instalação está disponível
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  eventoInstalacaoPWA = event;
+  if (document.getElementById('btn-instalar-pwa')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'btn-instalar-pwa';
+  btn.type = 'button';
+  btn.textContent = '📲 Instalar app';
+  btn.style.cssText = 'position: fixed; right: 14px; bottom: 14px; z-index: 900; background: #52b788; color: #081c15; border: none; border-radius: 24px; padding: 12px 18px; font-weight: 800; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4);';
+  btn.onclick = async () => {
+    if (!eventoInstalacaoPWA) return;
+    eventoInstalacaoPWA.prompt();
+    await eventoInstalacaoPWA.userChoice;
+    eventoInstalacaoPWA = null;
+    removerBotaoInstalar();
+  };
+  document.body.appendChild(btn);
+});
+
+window.addEventListener('appinstalled', () => {
+  eventoInstalacaoPWA = null;
+  removerBotaoInstalar();
+});
