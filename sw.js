@@ -2,7 +2,7 @@
    Estratégia: rede primeiro (sempre pega a versão mais nova quando há sinal)
    e, se a rede falhar ou demorar, usa a cópia guardada no aparelho. */
 
-const VERSAO_CACHE = 'criatorio-marques-v1'; // mude o número ao publicar mudanças grandes
+const VERSAO_CACHE = 'criatorio-marques-v2'; // mude o número ao publicar mudanças grandes
 const TEMPO_LIMITE_REDE_MS = 4000;
 
 const ARQUIVOS_BASE = [
