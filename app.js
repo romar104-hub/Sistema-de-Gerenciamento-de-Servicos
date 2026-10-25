@@ -5,6 +5,9 @@
 const STORAGE_KEY = 'criatorio_marques_servicos';
 const STORAGE_KEY_AREAS = 'criatorio_marques_areas';
 const STORAGE_KEY_FAZENDA = 'dadosFazenda';
+const STORAGE_KEY_ULTIMO_BACKUP = 'criatorio_marques_ultimo_backup';
+const STORAGE_KEY_BACKUP_ADIADO = 'criatorio_marques_backup_adiado_ate';
+const DIAS_LEMBRETE_BACKUP = 7; // avisa quando o último backup tiver mais de X dias
 
 // Senha de admin. ATENÇÃO: em app 100% front-end ela fica visível no código.
 // Serve apenas para evitar cliques acidentais, não para segurança real.
@@ -88,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
   atualizarSelectAreasServico();
   filtrarServicos(); // renderiza a lista e atualiza os contadores
   buscarClimaBelem();
+  verificarLembreteBackup();
 
   if (!localStorage.getItem(STORAGE_KEY_FAZENDA)) {
     abrirModalPerfilFazenda(true);
@@ -1116,6 +1120,92 @@ function carregarDadosFazendaNaTela() {
 /* ==========================================================================
    BACKUP E IMPORTAÇÃO
    ========================================================================== */
+/* ---------- Lembrete de backup ---------- */
+function lerNumeroStorage(chave) {
+  try {
+    const n = Number(localStorage.getItem(chave));
+    return Number.isFinite(n) ? n : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function removerBannerBackup() {
+  const antigo = document.getElementById('banner-backup');
+  if (antigo) antigo.remove();
+}
+
+function registrarBackupFeito() {
+  try {
+    localStorage.setItem(STORAGE_KEY_ULTIMO_BACKUP, String(Date.now()));
+    localStorage.removeItem(STORAGE_KEY_BACKUP_ADIADO);
+  } catch (e) { /* sem espaço: ignora */ }
+  removerBannerBackup();
+}
+
+function adiarLembreteBackup() {
+  try {
+    // some por 24 horas
+    localStorage.setItem(STORAGE_KEY_BACKUP_ADIADO, String(Date.now() + 24 * 60 * 60 * 1000));
+  } catch (e) { /* ignora */ }
+  removerBannerBackup();
+}
+
+function verificarLembreteBackup() {
+  removerBannerBackup();
+
+  // Só avisa se existe algo a proteger
+  if (carregarServicos().length === 0) return;
+
+  const agora = Date.now();
+  if (agora < lerNumeroStorage(STORAGE_KEY_BACKUP_ADIADO)) return;
+
+  const ultimo = lerNumeroStorage(STORAGE_KEY_ULTIMO_BACKUP);
+  const dias = ultimo ? Math.floor((agora - ultimo) / (24 * 60 * 60 * 1000)) : null;
+
+  if (dias !== null && dias < DIAS_LEMBRETE_BACKUP) return;
+
+  const mensagem = dias === null
+    ? 'Você ainda não fez nenhum backup dos seus dados.'
+    : `Seu último backup foi há ${dias} ${dias === 1 ? 'dia' : 'dias'}.`;
+
+  mostrarBannerBackup(mensagem);
+}
+
+function mostrarBannerBackup(mensagem) {
+  const principal = document.querySelector('main.container') || document.querySelector('main');
+  if (!principal) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'banner-backup';
+  banner.style.cssText = 'background: #fff3cd; color: #000000; border: 1px solid #ffc107; border-left: 5px solid #e67e22; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem;';
+
+  const texto = document.createElement('span');
+  texto.innerHTML = '💾 <strong>Lembrete de backup:</strong> ';
+  texto.appendChild(document.createTextNode(mensagem + ' Proteja seus dados.'));
+
+  const botoes = document.createElement('div');
+  botoes.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap;';
+
+  const btnFazer = document.createElement('button');
+  btnFazer.type = 'button';
+  btnFazer.textContent = '💾 Fazer backup agora';
+  btnFazer.style.cssText = 'background: #27ae60; color: #ffffff; border: none; border-radius: 6px; padding: 7px 12px; font-weight: bold; font-size: 0.8rem; cursor: pointer;';
+  btnFazer.onclick = () => fazerBackup();
+
+  const btnDepois = document.createElement('button');
+  btnDepois.type = 'button';
+  btnDepois.textContent = 'Lembrar amanhã';
+  btnDepois.style.cssText = 'background: #64748b; color: #ffffff; border: none; border-radius: 6px; padding: 7px 12px; font-size: 0.8rem; cursor: pointer;';
+  btnDepois.onclick = adiarLembreteBackup;
+
+  botoes.appendChild(btnFazer);
+  botoes.appendChild(btnDepois);
+  banner.appendChild(texto);
+  banner.appendChild(botoes);
+  principal.insertBefore(banner, principal.firstChild);
+}
+
 async function fazerBackup() {
   try {
     const dados = {
@@ -1134,6 +1224,7 @@ async function fazerBackup() {
       const arquivo = new File([blob], nomeArquivo, { type: 'application/json' });
       if (navigator.canShare({ files: [arquivo] })) {
         await navigator.share({ files: [arquivo], title: 'Backup Criatório Marques' });
+        registrarBackupFeito();
         return;
       }
     }
@@ -1145,6 +1236,7 @@ async function fazerBackup() {
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
+    registrarBackupFeito();
 
     // Não revogar a URL na hora: em alguns navegadores isso cancela o download
     setTimeout(() => {
