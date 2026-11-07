@@ -7,8 +7,8 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#1b3b22">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Criatório Marques">
@@ -99,7 +99,7 @@
       <input type="text" id="search-input" placeholder="🔍 Buscar por nome, local ou responsável..." oninput="filtrarServicos()">
       <div class="backup-actions">
         <button onclick="exportarBackup()" class="btn-secondary">💾 Backup</button>
-        <label for="import-file" class="btn-secondary">📅 Importar</label>
+        <label for="import-file" class="btn-secondary" onclick="if (perfilAtual !== 'admin') { event.preventDefault(); alert('Entre como Admin para importar um backup.'); }">📅 Importar</label>
         <input type="file" id="import-file" accept=".json" onchange="importarBackup(event)" style="display:none;">
       </div>
     </section>
@@ -157,14 +157,34 @@
           </label>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 130px;">
-              <label for="data-agendada" style="font-size: 0.75rem;">Data da Execução:</label>
-              <input type="date" id="data-agendada">
+              <label for="data-agendada" style="font-size: 0.75rem; color: #2c3e50; font-weight: 600; display: block; margin-bottom: 3px;">Data da Execução:</label>
+              <input type="date" id="data-agendada" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; background: #ffffff; color: #000000; box-sizing: border-box;">
             </div>
             <div style="flex: 1; min-width: 100px;">
-              <label for="hora-agendada" style="font-size: 0.75rem;">Horário Previsto:</label>
-              <input type="time" id="hora-agendada">
+              <label for="hora-agendada" style="font-size: 0.75rem; color: #2c3e50; font-weight: 600; display: block; margin-bottom: 3px;">Horário Previsto:</label>
+              <input type="time" id="hora-agendada" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; background: #ffffff; color: #000000; box-sizing: border-box;">
             </div>
           </div>
+        </div>
+
+        <!-- REPETIÇÃO AUTOMÁTICA -->
+        <div style="background: #f1f5f9; padding: 10px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid #27ae60;">
+          <label for="recorrencia-servico" style="font-weight: bold; color: #2c3e50; font-size: 0.85rem; display: block; margin-bottom: 6px;">
+            🔁 Repetir este serviço (Opcional)
+          </label>
+          <select id="recorrencia-servico" onchange="alternarRecorrenciaPersonalizada()" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; background: #ffffff; color: #000000; box-sizing: border-box;">
+            <option value="0">Não repetir</option>
+            <option value="7">A cada 7 dias (semanal)</option>
+            <option value="15">A cada 15 dias</option>
+            <option value="30">A cada 30 dias (mensal)</option>
+            <option value="60">A cada 60 dias</option>
+            <option value="90">A cada 90 dias</option>
+            <option value="180">A cada 180 dias</option>
+            <option value="365">A cada 365 dias (anual)</option>
+            <option value="custom">Outro intervalo...</option>
+          </select>
+          <input type="number" id="recorrencia-personalizada" min="1" max="3650" placeholder="Quantidade de dias" style="display: none; width: 100%; margin-top: 6px; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; background: #ffffff; color: #000000; box-sizing: border-box;">
+          <small style="color: #475569; display: block; margin-top: 6px;">Ao concluir, o próximo serviço é agendado automaticamente, contando a partir da data da conclusão.</small>
         </div>
 
         <div class="form-group">
@@ -269,8 +289,8 @@
           <textarea id="relatorio-conclusao-editar" rows="3" required></textarea>
         </div>
         <div class="form-group">
-          <label>Anexar / Adicionar Fotos da Execução</label>
-          <input type="file" accept="image/*" multiple onchange="carregarNovasImagensEdicao(event)">
+          <label for="fotos-conclusao-editar">Anexar / Adicionar Fotos da Execução</label>
+          <input type="file" id="fotos-conclusao-editar" accept="image/*" multiple onchange="carregarNovasImagensEdicao(event)">
           <div id="preview-imagens-editar" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;"></div>
         </div>
         <div class="form-actions">
@@ -309,8 +329,8 @@
           <input type="text" id="nome-area" placeholder="Ex: Curral, Maternidade, Baia 01" required>
         </div>
         <div class="form-group" style="margin-top: 8px;">
-          <label>Foto da Estrutura / Local (Opcional)</label>
-          <input type="file" accept="image/*" onchange="carregarFotoArea(event)">
+          <label for="foto-area">Foto da Estrutura / Local (Opcional)</label>
+          <input type="file" id="foto-area" accept="image/*" onchange="carregarFotoArea(event)">
           <div id="preview-foto-area" style="margin-top: 8px;"></div>
         </div>
         <button type="submit" class="btn-primary" style="margin-top: 10px; width: 100%; background: #27ae60;">+ Cadastrar Área</button>
@@ -364,7 +384,7 @@
 
   <!-- MODAL ZOOM IMAGEM -->
   <div id="modal-zoom-imagem" class="modal-image-view" style="display: none;" onclick="fecharZoomImagem()">
-    <img id="img-ampliada" src="" alt="Imagem Ampliada">
+    <img id="img-ampliada" alt="Imagem Ampliada">
   </div>
 
   <script src="app.js"></script>
