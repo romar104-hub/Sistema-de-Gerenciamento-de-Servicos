@@ -83,15 +83,214 @@ function esconderModal(id) {
 }
 
 /* ==========================================================================
+   FOTOS (guardadas no IndexedDB, que comporta muito mais que o localStorage)
+   ========================================================================== */
+const DB_NOME = 'criatorio_marques_fotos';
+const DB_STORE = 'fotos';
+const FOTO_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const cacheFotos = new Map();
+let dbPromise = null;
+let idbOk = null;
+
+// No JSON dos serviços a foto vira uma referência curta: "idb:<id>"
+function ehRefFoto(valor) { return typeof valor === 'string' && valor.startsWith('idb:'); }
+function ehFotoInline(valor) { return typeof valor === 'string' && valor.startsWith('data:image'); }
+function novoIdFoto() { return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`; }
+
+function abrirDB() {
+  if (!dbPromise) {
+    dbPromise = new Promise((resolve, reject) => {
+      if (!window.indexedDB) return reject(new Error('IndexedDB indisponível'));
+      const req = indexedDB.open(DB_NOME, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(DB_STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  return dbPromise;
+}
+
+function idbOp(modo, fn) {
+  return abrirDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, modo);
+    let resultado;
+    const req = fn(tx.objectStore(DB_STORE));
+    if (req) req.onsuccess = () => { resultado = req.result; };
+    tx.oncomplete = () => resolve(resultado);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  }));
+}
+
+const idbSet = (id, valor) => idbOp('readwrite', st => st.put(valor, id));
+const idbGet = id => idbOp('readonly', st => st.get(id));
+const idbDel = id => idbOp('readwrite', st => st.delete(id));
+const idbLimpar = () => idbOp('readwrite', st => st.clear());
+
+function idbTodos() {
+  return abrirDB().then(db => new Promise((resolve, reject) => {
+    const saida = {};
+    const cursor = db.transaction(DB_STORE, 'readonly').objectStore(DB_STORE).openCursor();
+    cursor.onsuccess = e => {
+      const c = e.target.result;
+      if (c) { saida[c.key] = c.value; c.continue(); } else { resolve(saida); }
+    };
+    cursor.onerror = () => reject(cursor.error);
+  }));
+}
+
+async function idbDisponivel() {
+  if (idbOk !== null) return idbOk;
+  try {
+    await abrirDB();
+    idbOk = true;
+  } catch (e) {
+    console.warn('IndexedDB indisponível; as fotos ficarão no localStorage.', e);
+    idbOk = false;
+  }
+  return idbOk;
+}
+
+async function obterFoto(ref) {
+  if (!ehRefFoto(ref)) return ref;
+  if (cacheFotos.has(ref)) return cacheFotos.get(ref);
+  try {
+    const dado = await idbGet(ref.slice(4));
+    if (dado) cacheFotos.set(ref, dado);
+    return dado || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// <img> de uma foto: referência (carregada depois) ou imagem antiga embutida
+function imgFotoHTML(ref, atributos) {
+  if (ehRefFoto(ref)) return `<img src="${FOTO_PLACEHOLDER}" data-foto="${esc(ref)}" ${atributos}>`;
+  return `<img src="${esc(ref)}" ${atributos}>`;
+}
+
+async function hidratarFotos(raiz) {
+  const base = raiz || document;
+  const imgs = Array.from(base.querySelectorAll('img[data-foto]'));
+  await Promise.all(imgs.map(async img => {
+    const dado = await obterFoto(img.getAttribute('data-foto'));
+    if (dado) {
+      img.src = dado;
+      img.removeAttribute('data-foto');
+    }
+  }));
+}
+
+// Grava no IndexedDB as fotos novas (data:image...) e devolve a lista só com referências.
+// Se o IndexedDB não existir, mantém a foto embutida (comportamento antigo).
+async function persistirFotos(lista) {
+  const usaIDB = await idbDisponivel();
+  const refs = [];
+  const novos = [];
+  for (const f of lista) {
+    if (usaIDB && ehFotoInline(f)) {
+      const id = novoIdFoto();
+      await idbSet(id, f);
+      cacheFotos.set('idb:' + id, f);
+      refs.push('idb:' + id);
+      novos.push('idb:' + id);
+    } else {
+      refs.push(f);
+    }
+  }
+  atualizarInfoArmazenamento();
+  return { refs, novos };
+}
+
+async function removerFotosDoDB(refs) {
+  for (const ref of refs || []) {
+    if (!ehRefFoto(ref)) continue;
+    cacheFotos.delete(ref);
+    try { await idbDel(ref.slice(4)); } catch (e) { /* ignora */ }
+  }
+  atualizarInfoArmazenamento();
+}
+
+// Move para o IndexedDB as fotos que estavam dentro do localStorage (libera espaço)
+async function migrarFotosParaIndexedDB() {
+  if (!(await idbDisponivel())) return;
+
+  const servicos = carregarServicos();
+  const areas = carregarAreas();
+  const precisaServicos = servicos.some(s => Array.isArray(s.fotos) && s.fotos.some(ehFotoInline));
+  const precisaAreas = areas.some(a => ehFotoInline(a.foto));
+  if (!precisaServicos && !precisaAreas) return;
+
+  try {
+    // 1) copia todas as fotos para o IndexedDB
+    for (const s of servicos) {
+      if (!Array.isArray(s.fotos)) continue;
+      for (let i = 0; i < s.fotos.length; i++) {
+        if (ehFotoInline(s.fotos[i])) {
+          const id = novoIdFoto();
+          await idbSet(id, s.fotos[i]);
+          s.fotos[i] = 'idb:' + id;
+        }
+      }
+    }
+    for (const a of areas) {
+      if (ehFotoInline(a.foto)) {
+        const id = novoIdFoto();
+        await idbSet(id, a.foto);
+        a.foto = 'idb:' + id;
+      }
+    }
+    // 2) só então troca os dados do localStorage (agora bem menores)
+    if (precisaServicos) localStorage.setItem(STORAGE_KEY, JSON.stringify(servicos));
+    if (precisaAreas) localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
+    filtrarServicos();
+  } catch (e) {
+    console.error('Falha ao migrar fotos para o IndexedDB:', e);
+  }
+}
+
+async function atualizarInfoArmazenamento() {
+  try {
+    if (!navigator.storage || !navigator.storage.estimate) return;
+    const toolbar = document.querySelector('.toolbar');
+    if (!toolbar) return;
+
+    const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+    const mb = usage / (1024 * 1024);
+    let texto = `💽 Armazenamento usado: ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+    let cor = '#d8f3dc';
+    if (quota) {
+      const pct = Math.round((usage / quota) * 100);
+      texto += ` (${pct}% do disponível)`;
+      if (pct >= 80) cor = '#ffb703';
+    }
+
+    let el = document.getElementById('info-armazenamento');
+    if (!el) {
+      el = document.createElement('small');
+      el.id = 'info-armazenamento';
+      toolbar.appendChild(el);
+    }
+    el.style.cssText = `color: ${cor}; font-size: 0.75rem;`;
+    el.textContent = texto;
+  } catch (e) { /* ignora */ }
+}
+
+/* ==========================================================================
    INICIALIZAÇÃO
    ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
   carregarDadosFazendaNaTela();
   atualizarLabelPerfil();
   atualizarSelectAreasServico();
+  atualizarEstiloCards();
   filtrarServicos(); // renderiza a lista e atualiza os contadores
   buscarClimaBelem();
   verificarLembreteBackup();
+
+  // pede ao navegador para não apagar os dados do app por falta de espaço
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  migrarFotosParaIndexedDB().then(() => atualizarInfoArmazenamento()).catch(() => {});
 
   if (!localStorage.getItem(STORAGE_KEY_FAZENDA)) {
     abrirModalPerfilFazenda(true);
@@ -248,7 +447,7 @@ function carregarFotoArea(event) {
   if (prev) prev.innerHTML = '';
   if (!file) return;
 
-  comprimirImagem(file, 800, 800, 0.8, function (base64) {
+  comprimirImagem(file, 800, 800, 0.7, function (base64) {
     fotoTempAreaBase64 = base64;
     if (prev) {
       prev.innerHTML = '';
@@ -260,8 +459,9 @@ function carregarFotoArea(event) {
   });
 }
 
-function salvarNovaArea(event) {
+async function salvarNovaArea(event) {
   if (event) event.preventDefault();
+  const formulario = event && event.target;
   const input = document.getElementById('nome-area') || document.getElementById('nome-nova-area');
   if (!input) return;
 
@@ -273,15 +473,30 @@ function salvarNovaArea(event) {
     return alert('Essa área já está cadastrada.');
   }
 
-  areas.push({ id: Date.now(), nome, foto: fotoTempAreaBase64 || '' });
-  if (!salvarAreas(areas)) return;
+  let foto = '';
+  let novos = [];
+  if (fotoTempAreaBase64) {
+    try {
+      const resultado = await persistirFotos([fotoTempAreaBase64]);
+      foto = resultado.refs[0];
+      novos = resultado.novos;
+    } catch (e) {
+      return alert('Não foi possível guardar a foto neste aparelho.');
+    }
+  }
+
+  areas.push({ id: Date.now(), nome, foto });
+  if (!salvarAreas(areas)) {
+    await removerFotosDoDB(novos);
+    return;
+  }
 
   input.value = '';
   fotoTempAreaBase64 = '';
   const prev = document.getElementById('preview-foto-area');
   if (prev) prev.innerHTML = '';
-  if (event && event.target && event.target.querySelector) {
-    const arquivo = event.target.querySelector('input[type="file"]');
+  if (formulario && formulario.querySelector) {
+    const arquivo = formulario.querySelector('input[type="file"]');
     if (arquivo) arquivo.value = '';
   }
   renderizarListaAreas();
@@ -290,13 +505,17 @@ function salvarNovaArea(event) {
 // Nome antigo, mantido por compatibilidade
 const adicionarNovaArea = salvarNovaArea;
 
-function removerArea(id) {
+async function removerArea(id) {
   if (!exigirAdmin()) return;
-  if (confirm('Deseja remover esta área?')) {
-    const areas = carregarAreas().filter(a => Number(a.id) !== Number(id));
-    salvarAreas(areas);
-    renderizarListaAreas();
+  if (!confirm('Deseja remover esta área?')) return;
+
+  const todas = carregarAreas();
+  const alvo = todas.find(a => Number(a.id) === Number(id));
+  const areas = todas.filter(a => Number(a.id) !== Number(id));
+  if (salvarAreas(areas) && alvo) {
+    await removerFotosDoDB([alvo.foto]);
   }
+  renderizarListaAreas();
 }
 
 function renderizarListaAreas() {
@@ -313,12 +532,13 @@ function renderizarListaAreas() {
   container.innerHTML = areas.map(a => `
     <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
       <div style="display: flex; align-items: center; gap: 10px;">
-        ${a.foto ? `<img src="${esc(a.foto)}" onclick="ampliarImagem(this.src)" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; cursor: pointer;">` : ''}
+        ${a.foto ? imgFotoHTML(a.foto, 'onclick="ampliarImagem(this.src)" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; cursor: pointer;"') : ''}
         <span style="font-size: 0.9rem; font-weight: 500; color: #1e293b;">📍 ${esc(a.nome)}</span>
       </div>
       ${perfilAtual === 'admin' ? `<button onclick="removerArea(${Number(a.id)})" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; cursor: pointer;">Excluir</button>` : ''}
     </div>
   `).join('');
+  hidratarFotos(container);
 }
 
 // O campo "Local" do formulário é um <input> com <datalist>; preenchemos as sugestões
@@ -349,7 +569,7 @@ function salvarServicos(servicos) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(servicos));
   } catch (e) {
-    alert('Atenção: limite de armazenamento local excedido! Remova serviços antigos ou fotos.');
+    alert('Atenção: o armazenamento do aparelho está cheio. Faça um backup e remova serviços antigos.');
     return false;
   }
   filtrarServicos();
@@ -401,6 +621,16 @@ function fecharModal() {
   esconderModal('modal-servico');
   const form = document.getElementById('form-servico');
   if (form) form.reset();
+  alternarRecorrenciaPersonalizada();
+}
+
+function alternarRecorrenciaPersonalizada() {
+  const sel = document.getElementById('recorrencia-servico');
+  const campo = document.getElementById('recorrencia-personalizada');
+  if (!sel || !campo) return;
+  const personalizado = sel.value === 'custom';
+  campo.style.display = personalizado ? 'block' : 'none';
+  if (!personalizado) campo.value = '';
 }
 
 function salvarServicoFormulario(event) {
@@ -420,6 +650,20 @@ function salvarServicoFormulario(event) {
   const observacoes = valor('obs-servico').trim();
   const dataAgendadaVal = valor('data-agendada');
   const horaAgendadaVal = valor('hora-agendada');
+
+  // Repetição automática (0 = não repete)
+  let recorrenciaDias = 0;
+  const selRecorrencia = document.getElementById('recorrencia-servico');
+  if (selRecorrencia) {
+    if (selRecorrencia.value === 'custom') {
+      recorrenciaDias = parseInt(valor('recorrencia-personalizada'), 10);
+      if (!Number.isInteger(recorrenciaDias) || recorrenciaDias < 1 || recorrenciaDias > 3650) {
+        return alert('Informe um intervalo de repetição entre 1 e 3650 dias.');
+      }
+    } else {
+      recorrenciaDias = parseInt(selRecorrencia.value, 10) || 0;
+    }
+  }
 
   let statusInicial = 'Pendente';
   let informacaoAgendamento = null;
@@ -444,6 +688,7 @@ function salvarServicoFormulario(event) {
     historicoExecucao: [],
     conclusaoInfo: null,
     fotos: [],
+    recorrenciaDias,
     data: new Date().toLocaleDateString('pt-BR')
   });
 
@@ -475,7 +720,7 @@ function atualizarEstiloCards() {
 
   const titulo = document.getElementById('titulo-lista');
   if (titulo) {
-    titulo.innerText = filtroStatusAtual ? `Serviços (${filtroStatusAtual})` : 'Serviços recentes';
+    titulo.innerText = filtroStatusAtual ? `Serviços (${filtroStatusAtual})` : 'Serviços por urgência';
   }
 }
 
@@ -497,7 +742,50 @@ function filtrarServicos() {
     );
   }
 
-  renderizarServicos(servicos);
+  renderizarServicos(ordenarServicos(servicos));
+}
+
+// Peso da prioridade: Alta primeiro, depois Normal, depois Baixa
+function pesoPrioridade(prioridade) {
+  const pesos = { alta: 0, normal: 1, baixa: 2 };
+  const p = pesos[norm(prioridade)];
+  return p === undefined ? 1 : p;
+}
+
+function timestampAgendamento(s) {
+  if (!s.dataAgendada) return Number.MAX_SAFE_INTEGER;
+  const hora = /(\d{2}):(\d{2})/.exec(s.agendamento || '');
+  const t = new Date(`${s.dataAgendada}T${hora ? hora[0] : '23:59'}:00`).getTime();
+  return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
+}
+
+// Ordem: 1) atrasados  2) em execução  3) prioridade  4) data agendada  5) mais novos
+// Concluídos vão para o fim, do mais recente para o mais antigo.
+function ordenarServicos(lista) {
+  return [...lista].sort((a, b) => {
+    const concA = norm(a.status) === 'concluido';
+    const concB = norm(b.status) === 'concluido';
+    if (concA !== concB) return concA ? 1 : -1;
+    if (concA && concB) return Number(b.id) - Number(a.id);
+
+    const atrA = servicoEstaAtrasado(a);
+    const atrB = servicoEstaAtrasado(b);
+    if (atrA !== atrB) return atrA ? -1 : 1;
+
+    const execA = norm(a.status) === 'em execucao';
+    const execB = norm(b.status) === 'em execucao';
+    if (execA !== execB) return execA ? -1 : 1;
+
+    const pa = pesoPrioridade(a.prioridade);
+    const pb = pesoPrioridade(b.prioridade);
+    if (pa !== pb) return pa - pb;
+
+    const da = timestampAgendamento(a);
+    const db = timestampAgendamento(b);
+    if (da !== db) return da - db;
+
+    return Number(b.id) - Number(a.id);
+  });
 }
 
 function servicoEstaAtrasado(s) {
@@ -524,6 +812,7 @@ function renderizarServicos(servicos) {
   if (lista.length === 0) {
     container.innerHTML = '<p class="empty-msg" style="text-align: center; color: #7f8c8d; margin-top: 20px;">Nenhum serviço encontrado.</p>';
     atualizarContadoresDashboard();
+    verificarAlertasDoDia();
     return;
   }
 
@@ -574,6 +863,7 @@ function renderizarServicos(servicos) {
       </div>
       <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${esc(s.local)} | 👤 ${esc(s.responsavel)} | 📅 Criado: ${esc(s.data || s.dataCriacao || 'N/A')}</p>
       <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0; color: ${corPrioridade};">Prioridade: <strong style="color: ${corPrioridade};">${esc(s.prioridade || 'Normal')}</strong></p>
+      ${Number(s.recorrenciaDias) > 0 ? `<p style="font-size: 0.8rem; margin: 4px 0; color: #2e5a3c; font-weight: 600;">🔁 Repete a cada ${Number(s.recorrenciaDias)} ${Number(s.recorrenciaDias) === 1 ? 'dia' : 'dias'}</p>` : ''}
 
       ${emAtraso ? `
         <div style="background: #fff5f5; border: 1px solid #feb2b2; padding: 8px 12px; border-radius: 6px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; border-left: 4px solid #e74c3c;">
@@ -606,7 +896,7 @@ function renderizarServicos(servicos) {
           <div>${esc(s.conclusaoInfo)}</div>
           ${s.fotos && s.fotos.length > 0 ? `
             <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
-              ${s.fotos.map(f => `<img src="${esc(f)}" class="img-zoom" onclick="ampliarImagem(this.src)" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60; cursor: pointer;">`).join('')}
+              ${s.fotos.map(f => imgFotoHTML(f, 'class="img-zoom" onclick="ampliarImagem(this.src)" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #27ae60; cursor: pointer;"')).join('')}
             </div>` : ''}
         </div>` : ''}
 
@@ -615,6 +905,8 @@ function renderizarServicos(servicos) {
   }).join('');
 
   atualizarContadoresDashboard();
+  verificarAlertasDoDia();
+  hidratarFotos(container);
 }
 
 /* ==========================================================================
@@ -670,11 +962,15 @@ function confirmarPausaServico() {
   fecharModalJustificativa();
 }
 
-function excluirServico(id) {
+async function excluirServico(id) {
   if (!exigirAdmin()) return;
-  if (confirm('Tem certeza que deseja excluir este serviço permanentemente?')) {
-    const servicos = carregarServicos().filter(s => Number(s.id) !== Number(id));
-    salvarServicos(servicos);
+  if (!confirm('Tem certeza que deseja excluir este serviço permanentemente?')) return;
+
+  const todos = carregarServicos();
+  const alvo = todos.find(s => Number(s.id) === Number(id));
+  const servicos = todos.filter(s => Number(s.id) !== Number(id));
+  if (salvarServicos(servicos) && alvo) {
+    await removerFotosDoDB(alvo.fotos || []);
   }
 }
 
@@ -833,7 +1129,7 @@ function carregarImagensConclusao(event) {
   imagensTempConclusao = [];
 
   files.forEach(file => {
-    comprimirImagem(file, 1000, 1000, 0.8, function (base64Otimizado) {
+    comprimirImagem(file, 1024, 1024, 0.72, function (base64Otimizado) {
       imagensTempConclusao.push(base64Otimizado);
       if (preview) {
         const img = document.createElement('img');
@@ -845,23 +1141,50 @@ function carregarImagensConclusao(event) {
   });
 }
 
-function confirmarConclusaoServico(event) {
+let salvandoConclusao = false;
+
+async function confirmarConclusaoServico(event) {
   if (event) event.preventDefault();
+  if (salvandoConclusao) return;
+
   const campo = document.getElementById('relatorio-conclusao');
   const relatorio = campo ? campo.value.trim() : '';
   if (!relatorio) return alert('Informe o relatório de conclusão.');
 
-  const servicos = carregarServicos();
-  const item = servicos.find(s => Number(s.id) === Number(servicoConclusaoId));
-  if (item) {
-    item.status = 'Concluído';
-    item.conclusaoInfo = relatorio;
-    item.fotos = [...imagensTempConclusao];
-    if (!item.historicoExecucao) item.historicoExecucao = [];
-    item.historicoExecucao.push({ acao: 'Concluiu atividade', icone: '🏁', dataHora: obterDataHoraAtual() });
-    if (!salvarServicos(servicos)) return; // mantém o modal aberto se falhar
+  salvandoConclusao = true;
+  try {
+    let resultado;
+    try {
+      resultado = await persistirFotos(imagensTempConclusao);
+    } catch (e) {
+      console.error('Erro ao guardar fotos:', e);
+      return alert('Não foi possível guardar as fotos neste aparelho. Tente com menos fotos.');
+    }
+
+    const servicos = carregarServicos();
+    const item = servicos.find(s => Number(s.id) === Number(servicoConclusaoId));
+    if (item) {
+      item.status = 'Concluído';
+      item.conclusaoInfo = relatorio;
+      item.fotos = resultado.refs;
+      if (!item.historicoExecucao) item.historicoExecucao = [];
+      item.historicoExecucao.push({ acao: 'Concluiu atividade', icone: '🏁', dataHora: obterDataHoraAtual() });
+
+      const proximo = criarProximoServicoRecorrente(item);
+      if (proximo) servicos.unshift(proximo);
+
+      if (!salvarServicos(servicos)) { // mantém o modal aberto se falhar
+        await removerFotosDoDB(resultado.novos);
+        return;
+      }
+      if (proximo) alert(`🔁 Próximo serviço agendado para ${proximo.agendamento}.`);
+    } else {
+      await removerFotosDoDB(resultado.novos);
+    }
+    fecharModalConclusao();
+  } finally {
+    salvandoConclusao = false;
   }
-  fecharModalConclusao();
 }
 
 /* ==========================================================================
@@ -891,13 +1214,18 @@ function renderizarPreviewFotosEdicao() {
   const preview = document.getElementById('preview-imagens-editar');
   if (!preview) return;
   preview.innerHTML = '';
-  imagensTempConclusao.forEach((imgSrc, index) => {
+  imagensTempConclusao.forEach((fonte, index) => {
     const div = document.createElement('div');
     div.style.cssText = 'position: relative; display: inline-block;';
 
     const img = document.createElement('img');
-    img.src = imgSrc;
     img.style.cssText = 'width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc;';
+    if (ehRefFoto(fonte)) {
+      img.src = FOTO_PLACEHOLDER;
+      obterFoto(fonte).then(dado => { if (dado) img.src = dado; });
+    } else {
+      img.src = fonte;
+    }
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -915,7 +1243,7 @@ function carregarNovasImagensEdicao(event) {
   const files = Array.from(event.target.files);
   event.target.value = ''; // permite selecionar a mesma foto novamente
   files.forEach(file => {
-    comprimirImagem(file, 1000, 1000, 0.8, function (base64Otimizado) {
+    comprimirImagem(file, 1024, 1024, 0.72, function (base64Otimizado) {
       imagensTempConclusao.push(base64Otimizado);
       renderizarPreviewFotosEdicao();
     });
@@ -927,20 +1255,45 @@ function removerFotoEdicao(index) {
   renderizarPreviewFotosEdicao();
 }
 
-function confirmarEdicaoConclusao(event) {
+let salvandoEdicao = false;
+
+async function confirmarEdicaoConclusao(event) {
   if (event) event.preventDefault();
   if (!exigirAdmin()) return;
+  if (salvandoEdicao) return;
+
   const campo = document.getElementById('relatorio-conclusao-editar');
   const relatorio = campo ? campo.value.trim() : '';
 
-  const servicos = carregarServicos();
-  const item = servicos.find(s => Number(s.id) === Number(servicoEdicaoConclusaoId));
-  if (item) {
-    item.conclusaoInfo = relatorio;
-    item.fotos = [...imagensTempConclusao];
-    if (!salvarServicos(servicos)) return;
+  salvandoEdicao = true;
+  try {
+    let resultado;
+    try {
+      resultado = await persistirFotos(imagensTempConclusao);
+    } catch (e) {
+      console.error('Erro ao guardar fotos:', e);
+      return alert('Não foi possível guardar as fotos neste aparelho. Tente com menos fotos.');
+    }
+
+    const servicos = carregarServicos();
+    const item = servicos.find(s => Number(s.id) === Number(servicoEdicaoConclusaoId));
+    if (item) {
+      const antes = item.fotos || [];
+      item.conclusaoInfo = relatorio;
+      item.fotos = resultado.refs;
+      if (!salvarServicos(servicos)) {
+        await removerFotosDoDB(resultado.novos);
+        return;
+      }
+      // apaga do aparelho as fotos que o admin retirou
+      await removerFotosDoDB(antes.filter(f => ehRefFoto(f) && !resultado.refs.includes(f)));
+    } else {
+      await removerFotosDoDB(resultado.novos);
+    }
+    fecharModalEditarConclusao();
+  } finally {
+    salvandoEdicao = false;
   }
-  fecharModalEditarConclusao();
 }
 
 /* ==========================================================================
@@ -988,10 +1341,11 @@ function abrirRelatorioCompleto(id) {
       <div>
         <strong>Fotos Registradas:</strong>
         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
-          ${s.fotos.map(f => `<img src="${esc(f)}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; cursor: pointer;" onclick="ampliarImagem(this.src)">`).join('')}
+          ${s.fotos.map(f => imgFotoHTML(f, 'style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; cursor: pointer;" onclick="ampliarImagem(this.src)"')).join('')}
         </div>
       </div>` : ''}
   `;
+  hidratarFotos(conteudo);
   mostrarModal('modal-relatorio');
 }
 
@@ -1120,6 +1474,98 @@ function carregarDadosFazendaNaTela() {
 /* ==========================================================================
    BACKUP E IMPORTAÇÃO
    ========================================================================== */
+/* ---------- Serviços recorrentes ---------- */
+function dataISOEmDias(dias) {
+  const d = new Date();
+  d.setDate(d.getDate() + dias);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatarDataISO(iso) {
+  const [ano, mes, dia] = iso.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
+// Cria o próximo serviço da série, contando a partir da data da conclusão
+function criarProximoServicoRecorrente(item) {
+  const dias = Number(item.recorrenciaDias) || 0;
+  if (dias < 1 || item.proximoServicoId) return null; // não repete, ou já foi criado
+
+  const dataISO = dataISOEmDias(dias);
+  const hora = /às\s*(\d{2}:\d{2})/.exec(item.agendamento || '');
+  const agendamento = `${formatarDataISO(dataISO)}${hora ? ' às ' + hora[1] : ''}`;
+
+  const novo = {
+    id: Date.now() + 1,
+    nome: item.nome,
+    local: item.local,
+    responsavel: item.responsavel,
+    prioridade: item.prioridade,
+    observacoes: item.observacoes,
+    status: 'Agendado',
+    agendamento,
+    dataAgendada: dataISO,
+    historicoExecucao: [],
+    conclusaoInfo: null,
+    fotos: [],
+    recorrenciaDias: dias,
+    origemServicoId: item.id,
+    data: new Date().toLocaleDateString('pt-BR')
+  };
+
+  item.proximoServicoId = novo.id;
+  item.historicoExecucao.push({
+    acao: 'Próximo serviço agendado',
+    icone: '🔁',
+    dataHora: obterDataHoraAtual(),
+    detalhes: `Repetição a cada ${dias} ${dias === 1 ? 'dia' : 'dias'}: ${agendamento}`
+  });
+  return novo;
+}
+
+/* ---------- Aviso do dia (atrasados e para hoje) ---------- */
+let alertasDispensados = false;
+
+function verificarAlertasDoDia() {
+  const antigo = document.getElementById('banner-alertas');
+  if (antigo) antigo.remove();
+  if (alertasDispensados) return;
+
+  const abertos = carregarServicos().filter(s => norm(s.status) !== 'concluido');
+  const atrasados = abertos.filter(servicoEstaAtrasado).length;
+  const hoje = hojeISO();
+  const paraHoje = abertos.filter(s => s.dataAgendada === hoje && !servicoEstaAtrasado(s)).length;
+  if (!atrasados && !paraHoje) return;
+
+  const partes = [];
+  if (atrasados) partes.push(`⚠️ <strong>${atrasados}</strong> ${atrasados === 1 ? 'serviço atrasado' : 'serviços atrasados'}`);
+  if (paraHoje) partes.push(`📅 <strong>${paraHoje}</strong> ${paraHoje === 1 ? 'serviço para hoje' : 'serviços para hoje'}`);
+
+  const banner = document.createElement('div');
+  banner.id = 'banner-alertas';
+  banner.style.cssText = 'background: #fdecea; color: #000000; border: 1px solid #f5b7b1; border-left: 5px solid #e74c3c; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem;';
+
+  const texto = document.createElement('span');
+  texto.innerHTML = partes.join(' &nbsp;•&nbsp; ');
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Ok';
+  btn.style.cssText = 'background: #64748b; color: #ffffff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer;';
+  btn.onclick = () => { alertasDispensados = true; banner.remove(); };
+
+  banner.appendChild(texto);
+  banner.appendChild(btn);
+
+  const grade = document.querySelector('.cards-grid');
+  if (grade && grade.parentNode) {
+    grade.parentNode.insertBefore(banner, grade);
+  } else {
+    const principal = document.querySelector('main');
+    if (principal) principal.insertBefore(banner, principal.firstChild);
+  }
+}
+
 /* ---------- Lembrete de backup ---------- */
 function lerNumeroStorage(chave) {
   try {
@@ -1206,14 +1652,25 @@ function mostrarBannerBackup(mensagem) {
   principal.insertBefore(banner, principal.firstChild);
 }
 
+// Reúne tudo que vai no backup, inclusive as fotos guardadas no IndexedDB
+async function montarDadosBackup() {
+  const servicos = carregarServicos();
+  const areas = carregarAreas();
+  const fotos = {};
+
+  if (await idbDisponivel()) {
+    const todas = await idbTodos();
+    const usadas = new Set();
+    servicos.forEach(s => (s.fotos || []).forEach(f => { if (ehRefFoto(f)) usadas.add(f.slice(4)); }));
+    areas.forEach(a => { if (ehRefFoto(a.foto)) usadas.add(a.foto.slice(4)); });
+    usadas.forEach(id => { if (todas[id]) fotos[id] = todas[id]; });
+  }
+  return { versao: 2, servicos, areas, fazenda: dadosFazenda, fotos };
+}
+
 async function fazerBackup() {
   try {
-    const dados = {
-      servicos: carregarServicos(),
-      areas: carregarAreas(),
-      fazenda: dadosFazenda
-    };
-
+    const dados = await montarDadosBackup();
     const json = JSON.stringify(dados);
     const nomeArquivo = `backup_criatorio_marques_${hojeISO()}.json`;
     const blob = new Blob([json], { type: 'application/json' });
@@ -1255,6 +1712,32 @@ const exportarBackup = fazerBackup;
 const baixarBackup = fazerBackup;
 const gerarBackup = fazerBackup;
 
+// Grava um backup no aparelho (serviços, áreas, fazenda e fotos)
+async function aplicarBackup(dados) {
+  if (!dados || typeof dados !== 'object') throw new Error('Arquivo inválido');
+
+  let servicos = Array.isArray(dados.servicos) ? dados.servicos : null;
+  let areas = Array.isArray(dados.areas) ? dados.areas : null;
+  const fotos = (dados.fotos && typeof dados.fotos === 'object') ? dados.fotos : {};
+
+  if (await idbDisponivel()) {
+    // só limpa as fotos antigas quando serviços e áreas são ambos substituídos
+    if (servicos && areas) { await idbLimpar(); cacheFotos.clear(); }
+    for (const [id, dado] of Object.entries(fotos)) await idbSet(id, dado);
+  } else {
+    // sem IndexedDB: devolve as fotos para dentro dos registros
+    const volta = f => (ehRefFoto(f) && fotos[f.slice(4)]) ? fotos[f.slice(4)] : f;
+    if (servicos) servicos = servicos.map(s => ({ ...s, fotos: (s.fotos || []).map(volta) }));
+    if (areas) areas = areas.map(a => ({ ...a, foto: volta(a.foto) }));
+  }
+
+  if (servicos) localStorage.setItem(STORAGE_KEY, JSON.stringify(servicos));
+  if (areas) localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
+  if (dados.fazenda && typeof dados.fazenda === 'object') {
+    localStorage.setItem(STORAGE_KEY_FAZENDA, JSON.stringify(dados.fazenda));
+  }
+}
+
 function importarBackup(event) {
   if (!exigirAdmin()) return;
   const file = event.target.files[0];
@@ -1266,20 +1749,14 @@ function importarBackup(event) {
   }
 
   const reader = new FileReader();
-  reader.onload = function (e) {
+  reader.onload = async function (e) {
     try {
       const dados = JSON.parse(e.target.result);
-      if (!dados || typeof dados !== 'object') throw new Error('Arquivo inválido');
-
-      if (Array.isArray(dados.servicos)) localStorage.setItem(STORAGE_KEY, JSON.stringify(dados.servicos));
-      if (Array.isArray(dados.areas)) localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(dados.areas));
-      if (dados.fazenda && typeof dados.fazenda === 'object') {
-        localStorage.setItem(STORAGE_KEY_FAZENDA, JSON.stringify(dados.fazenda));
-      }
-
+      await aplicarBackup(dados);
       alert('Dados importados com sucesso!');
       location.reload();
     } catch (err) {
+      console.error('Erro ao importar backup:', err);
       alert('Erro ao ler o arquivo de backup. Verifique se o arquivo JSON é válido.');
     }
   };
