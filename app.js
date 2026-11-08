@@ -1314,12 +1314,93 @@ function fecharZoomImagem() {
   if (img) img.removeAttribute('src');
 }
 
+/* ---------- Tempo de execução do serviço ---------- */
+// Lê "dd/mm/aaaa às hh:mm" (formato gravado no histórico)
+function lerDataHoraRegistro(texto) {
+  const m = /(\d{2})\/(\d{2})\/(\d{4})\D+(\d{2}):(\d{2})/.exec(texto || '');
+  if (!m) return null;
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5]));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatarDuracao(ms) {
+  const min = Math.round(ms / 60000);
+  if (min < 1) return 'menos de 1 minuto';
+  const dias = Math.floor(min / 1440);
+  const horas = Math.floor((min % 1440) / 60);
+  const minutos = min % 60;
+  const partes = [];
+  if (dias) partes.push(`${dias} ${dias === 1 ? 'dia' : 'dias'}`);
+  if (horas) partes.push(`${horas} h`);
+  if (minutos && !dias) partes.push(`${minutos} min`); // com dias, os minutos só poluem
+  return partes.join(' ');
+}
+
+// Percorre o histórico: soma só os períodos "em execução" (descontando as pausas)
+function calcularTemposServico(s) {
+  const historico = Array.isArray(s.historicoExecucao) ? s.historicoExecucao : [];
+  let inicio = null, fim = null, fimTexto = null;
+  let emExecucaoDesde = null, execucaoMs = 0, iniciou = false;
+
+  historico.forEach(h => {
+    const quando = lerDataHoraRegistro(h.dataHora || h.data);
+    if (!quando) return;
+    const acao = norm(h.acao);
+
+    if (acao.startsWith('iniciou') || acao.startsWith('retomou')) {
+      if (!inicio) inicio = quando;
+      iniciou = true;
+      emExecucaoDesde = quando;
+    } else if (acao.startsWith('pausou') || acao.startsWith('concluiu')) {
+      if (emExecucaoDesde) {
+        execucaoMs += Math.max(0, quando - emExecucaoDesde);
+        emExecucaoDesde = null;
+      }
+      if (acao.startsWith('concluiu')) {
+        fim = quando;
+        fimTexto = h.dataHora || h.data;
+      }
+    }
+  });
+
+  const criadoEm = Number(s.id) > 1e12 ? new Date(Number(s.id)) : null; // o id é a data/hora do cadastro
+  return {
+    iniciou,
+    execucaoMs,
+    fim,
+    fimTexto,
+    totalMs: inicio && fim ? Math.max(0, fim - inicio) : null,
+    cadastroMs: criadoEm && fim ? Math.max(0, fim - criadoEm) : null
+  };
+}
+
+// Linhas [rótulo, valor] para o resumo e para o WhatsApp
+function linhasTempoServico(s) {
+  const t = calcularTemposServico(s);
+  const linhas = [];
+  if (!t.fim) return linhas;
+
+  if (t.iniciou) {
+    linhas.push(['Tempo em execução', formatarDuracao(t.execucaoMs)]);
+    // só mostra o intervalo total quando houve pausas
+    if (t.totalMs !== null && t.totalMs - t.execucaoMs >= 60000) {
+      linhas.push(['Do início à conclusão', formatarDuracao(t.totalMs)]);
+    }
+  }
+  if (t.cadastroMs !== null) {
+    linhas.push(['Do cadastro à conclusão', formatarDuracao(t.cadastroMs)]);
+  }
+  return linhas;
+}
+
 function abrirRelatorioCompleto(id) {
   const s = carregarServicos().find(item => Number(item.id) === Number(id));
   const conteudo = document.getElementById('conteudo-relatorio');
   if (!s || !conteudo) return;
 
   const historico = s.historicoExecucao || [];
+  const tempos = linhasTempoServico(s);
+  const concluidoEm = calcularTemposServico(s).fimTexto;
 
   conteudo.innerHTML = `
     <p><strong>Serviço:</strong> ${esc(s.nome)}</p>
@@ -1328,6 +1409,12 @@ function abrirRelatorioCompleto(id) {
     <p><strong>Prioridade:</strong> ${esc(s.prioridade || 'Normal')}</p>
     <p><strong>Data de Criação:</strong> ${esc(s.data || 'N/A')}</p>
     ${s.observacoes ? `<p><strong>Observações:</strong> ${esc(s.observacoes)}</p>` : ''}
+    ${(tempos.length || concluidoEm) ? `
+      <div style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 6px; border-left: 4px solid #2980b9;">
+        <strong>⏱️ Tempo do serviço</strong>
+        ${concluidoEm ? `<div style="font-size: 0.9rem; margin-top: 3px;">Concluído em: <strong>${esc(concluidoEm)}</strong></div>` : ''}
+        ${tempos.map(([rotulo, valor]) => `<div style="font-size: 0.9rem; margin-top: 3px;">${esc(rotulo)}: <strong>${esc(valor)}</strong></div>`).join('')}
+      </div>` : ''}
     ${historico.length ? `
       <div>
         <strong>Registros de Execução:</strong>
@@ -1362,7 +1449,9 @@ function enviarRelatorioWhatsApp(id) {
   texto += `📌 *Serviço:* ${s.nome}\n`;
   texto += `📍 *Local:* ${s.local}\n`;
   texto += `👤 *Responsável:* ${s.responsavel}\n`;
-  texto += `📅 *Data:* ${s.data || 'N/A'}\n\n`;
+  texto += `📅 *Data:* ${s.data || 'N/A'}\n`;
+  linhasTempoServico(s).forEach(([rotulo, valor]) => { texto += `⏱️ *${rotulo}:* ${valor}\n`; });
+  texto += '\n';
   texto += `📝 *Relatório de Execução:*\n${s.conclusaoInfo || 'Atividade finalizada com sucesso.'}\n`;
 
   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
