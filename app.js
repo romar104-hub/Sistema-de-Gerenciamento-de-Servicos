@@ -283,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
   carregarDadosFazendaNaTela();
   atualizarLabelPerfil();
   atualizarSelectAreasServico();
+  atualizarListaCategorias();
   atualizarEstiloCards();
   filtrarServicos(); // renderiza a lista e atualiza os contadores
   buscarClimaBelem();
@@ -614,6 +615,7 @@ function atualizarDashboard() {
    ========================================================================== */
 function abrirModal() {
   atualizarSelectAreasServico();
+  atualizarListaCategorias();
   mostrarModal('modal-servico');
 }
 
@@ -648,6 +650,7 @@ function salvarServicoFormulario(event) {
   const responsavel = valor('responsavel-servico').trim() || 'Não atribuído';
   const prioridade = valor('prioridade-servico');
   const observacoes = valor('obs-servico').trim();
+  const categoria = canonicalizarCategoria(valor('categoria-servico'));
   const dataAgendadaVal = valor('data-agendada');
   const horaAgendadaVal = valor('hora-agendada');
 
@@ -682,6 +685,7 @@ function salvarServicoFormulario(event) {
     responsavel,
     prioridade,
     observacoes,
+    categoria,
     status: statusInicial,
     agendamento: informacaoAgendamento,
     dataAgendada: dataAgendadaVal,
@@ -718,6 +722,9 @@ function atualizarEstiloCards() {
     if (el) el.classList.toggle('ativo', filtroStatusAtual === status);
   });
 
+  const painel = document.getElementById('painel-filtros-concluidos');
+  if (painel) painel.style.display = filtrosConcluidosAtivos() ? 'block' : 'none';
+
   const titulo = document.getElementById('titulo-lista');
   if (titulo) {
     titulo.innerText = filtroStatusAtual ? `Serviços (${filtroStatusAtual})` : 'Serviços por urgência';
@@ -738,8 +745,16 @@ function filtrarServicos() {
     servicos = servicos.filter(s =>
       norm(s.nome).includes(termo) ||
       norm(s.local).includes(termo) ||
-      norm(s.responsavel).includes(termo)
+      norm(s.responsavel).includes(termo) ||
+      norm(s.categoria).includes(termo)
     );
+  }
+
+  // Filtros de data/mês, categoria e tempo: só valem na visão de concluídos
+  if (filtrosConcluidosAtivos()) {
+    atualizarOpcoesFiltros();
+    servicos = aplicarFiltrosConcluidos(servicos);
+    resumoFiltroConcluidos(servicos);
   }
 
   renderizarServicos(ordenarServicos(servicos));
@@ -766,7 +781,13 @@ function ordenarServicos(lista) {
     const concA = norm(a.status) === 'concluido';
     const concB = norm(b.status) === 'concluido';
     if (concA !== concB) return concA ? 1 : -1;
-    if (concA && concB) return Number(b.id) - Number(a.id);
+    if (concA && concB) {
+      const fa = calcularTemposServico(a).fim;
+      const fb = calcularTemposServico(b).fim;
+      const ta = fa ? fa.getTime() : Number(a.id);
+      const tb = fb ? fb.getTime() : Number(b.id);
+      return tb - ta;
+    }
 
     const atrA = servicoEstaAtrasado(a);
     const atrB = servicoEstaAtrasado(b);
@@ -861,7 +882,7 @@ function renderizarServicos(servicos) {
         <h4 style="margin: 0; color: #1b3b22;">${esc((s.nome || 'Serviço').toUpperCase())}</h4>
         <span class="badge ${esc(classeBadge)}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: #e2e8f0; color: #334155;">${esc(s.status)}</span>
       </div>
-      <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${esc(s.local)} | 👤 ${esc(s.responsavel)} | 📅 Criado: ${esc(s.data || s.dataCriacao || 'N/A')}</p>
+      <p class="service-info" style="font-size: 0.85rem; color: #64748b; margin: 6px 0;">📍 ${esc(s.local)} | 👤 ${esc(s.responsavel)}${s.categoria ? ` | 🏷️ ${esc(s.categoria)}` : ''} | 📅 Criado: ${esc(s.data || s.dataCriacao || 'N/A')}</p>
       <p class="service-priority" style="font-size: 0.85rem; margin: 4px 0; color: ${corPrioridade};">Prioridade: <strong style="color: ${corPrioridade};">${esc(s.prioridade || 'Normal')}</strong></p>
       ${Number(s.recorrenciaDias) > 0 ? `<p style="font-size: 0.8rem; margin: 4px 0; color: #2e5a3c; font-weight: 600;">🔁 Repete a cada ${Number(s.recorrenciaDias)} ${Number(s.recorrenciaDias) === 1 ? 'dia' : 'dias'}</p>` : ''}
 
@@ -907,6 +928,179 @@ function renderizarServicos(servicos) {
   atualizarContadoresDashboard();
   verificarAlertasDoDia();
   hidratarFotos(container);
+}
+
+/* ==========================================================================
+   FILTROS DOS SERVIÇOS CONCLUÍDOS (data/mês, categoria e tempo)
+   ========================================================================== */
+const CATEGORIAS_PADRAO = ['Sanidade', 'Manejo', 'Reprodução', 'Alimentação', 'Pesagem', 'Manutenção e Reparos', 'Limpeza', 'Administrativo', 'Outros'];
+
+// Faixas de duração em minutos: [mínimo, máximo)
+const FAIXAS_TEMPO = {
+  ate30: [0, 30],
+  de30a120: [30, 120],
+  de2a4h: [120, 240],
+  de4a8h: [240, 480],
+  de8a24h: [480, 1440],
+  de1a3d: [1440, 4320],
+  mais3d: [4320, Infinity]
+};
+
+const ROTULOS_TEMPO = {
+  execucao: 'Tempo em execução',
+  total: 'Do início à conclusão',
+  cadastro: 'Do cadastro à conclusão'
+};
+
+const NOMES_MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function filtrosConcluidosAtivos() {
+  return norm(filtroStatusAtual) === 'concluido';
+}
+
+function dataISODe(data) {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
+}
+
+function rotuloMes(anoMes) {
+  const [ano, mes] = anoMes.split('-');
+  return `${NOMES_MESES[Number(mes) - 1]} de ${ano}`;
+}
+
+// Categorias conhecidas: as padrão + as que já foram usadas nos serviços
+function categoriasConhecidas() {
+  const mapa = new Map();
+  CATEGORIAS_PADRAO.forEach(c => mapa.set(norm(c), c));
+  carregarServicos().forEach(s => {
+    const c = (s.categoria || '').trim();
+    if (c && !mapa.has(norm(c))) mapa.set(norm(c), c);
+  });
+  return mapa;
+}
+
+// "sanidade" digitado vira "Sanidade" se essa categoria já existe (evita duplicar por maiúscula/acento)
+function canonicalizarCategoria(texto) {
+  const limpo = (texto || '').trim();
+  if (!limpo) return '';
+  return categoriasConhecidas().get(norm(limpo)) || limpo;
+}
+
+function atualizarListaCategorias() {
+  const lista = document.getElementById('lista-categorias');
+  if (!lista) return;
+  lista.innerHTML = [...categoriasConhecidas().values()].map(c => `<option value="${esc(c)}"></option>`).join('');
+}
+
+// Monta as opções de mês e categoria a partir dos serviços concluídos
+function atualizarOpcoesFiltros() {
+  const concluidos = carregarServicos().filter(s => norm(s.status) === 'concluido');
+
+  const selMes = document.getElementById('filtro-mes');
+  if (selMes) {
+    const atual = selMes.value;
+    const meses = new Set();
+    concluidos.forEach(s => {
+      const fim = calcularTemposServico(s).fim;
+      if (fim) meses.add(dataISODe(fim).slice(0, 7));
+    });
+    const ordenados = [...meses].sort().reverse();
+    selMes.innerHTML = '<option value="">Todos os meses</option>' +
+      ordenados.map(m => `<option value="${m}">${rotuloMes(m)}</option>`).join('');
+    selMes.value = ordenados.includes(atual) ? atual : '';
+  }
+
+  const selCat = document.getElementById('filtro-categoria');
+  if (selCat) {
+    const atual = selCat.value;
+    const contagem = new Map(); // chave normalizada -> { rotulo, qtd }
+    let semCategoria = 0;
+    concluidos.forEach(s => {
+      const c = (s.categoria || '').trim();
+      if (!c) { semCategoria++; return; }
+      const chave = norm(c);
+      const item = contagem.get(chave) || { rotulo: canonicalizarCategoria(c), qtd: 0 };
+      item.qtd++;
+      contagem.set(chave, item);
+    });
+    const opcoes = [...contagem.entries()].sort((a, b) => a[1].rotulo.localeCompare(b[1].rotulo, 'pt-BR'));
+    selCat.innerHTML = '<option value="">Todas as categorias</option>' +
+      opcoes.map(([chave, item]) => `<option value="${esc(chave)}">${esc(item.rotulo)} (${item.qtd})</option>`).join('') +
+      (semCategoria ? `<option value="__sem__">Sem categoria (${semCategoria})</option>` : '');
+    selCat.value = (atual === '__sem__' && semCategoria) || contagem.has(atual) ? atual : '';
+  }
+}
+
+function valorTempoDoServico(s, tipo) {
+  const t = calcularTemposServico(s);
+  if (tipo === 'total') return t.totalMs;
+  if (tipo === 'cadastro') return t.cadastroMs;
+  return t.iniciou ? t.execucaoMs : null; // sem início registrado, não há tempo de execução
+}
+
+function aplicarFiltrosConcluidos(lista) {
+  const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const mes = val('filtro-mes');
+  const de = val('filtro-data-de');
+  const ate = val('filtro-data-ate');
+  const categoria = val('filtro-categoria');
+  const tipo = val('filtro-tempo-tipo') || 'execucao';
+  const faixa = FAIXAS_TEMPO[val('filtro-tempo-faixa')];
+
+  return lista.filter(s => {
+    if (mes || de || ate) {
+      const fim = calcularTemposServico(s).fim;
+      if (!fim) return false; // sem data de conclusão registrada
+      const iso = dataISODe(fim);
+      if (mes && iso.slice(0, 7) !== mes) return false;
+      if (de && iso < de) return false;
+      if (ate && iso > ate) return false;
+    }
+
+    if (categoria) {
+      const cat = (s.categoria || '').trim();
+      if (categoria === '__sem__') {
+        if (cat) return false;
+      } else if (norm(cat) !== categoria) {
+        return false;
+      }
+    }
+
+    if (faixa) {
+      const ms = valorTempoDoServico(s, tipo);
+      if (ms === null || ms === undefined) return false;
+      const minutos = ms / 60000;
+      if (minutos < faixa[0] || minutos >= faixa[1]) return false;
+    }
+    return true;
+  });
+}
+
+function resumoFiltroConcluidos(lista) {
+  const el = document.getElementById('resumo-filtro');
+  if (!el) return;
+  const tipoEl = document.getElementById('filtro-tempo-tipo');
+  const tipo = (tipoEl && tipoEl.value) || 'execucao';
+
+  const n = lista.length;
+  let texto = `${n} ${n === 1 ? 'serviço encontrado' : 'serviços encontrados'}`;
+
+  const valores = lista.map(s => valorTempoDoServico(s, tipo)).filter(v => v !== null && v !== undefined);
+  if (valores.length) {
+    const soma = valores.reduce((a, b) => a + b, 0);
+    texto += ` • Média (${ROTULOS_TEMPO[tipo].toLowerCase()}): ${formatarDuracao(soma / valores.length)}`;
+    if (tipo === 'execucao') texto += ` • Soma: ${formatarDuracao(soma)}`;
+  }
+  el.textContent = texto;
+}
+
+function limparFiltrosConcluidos() {
+  ['filtro-mes', 'filtro-data-de', 'filtro-data-ate', 'filtro-categoria', 'filtro-tempo-faixa'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const tipo = document.getElementById('filtro-tempo-tipo');
+  if (tipo) tipo.value = 'execucao';
+  filtrarServicos();
 }
 
 /* ==========================================================================
@@ -1198,6 +1392,9 @@ function abrirModalEditarConclusao(id) {
 
   const campoText = document.getElementById('relatorio-conclusao-editar');
   if (campoText) campoText.value = s.conclusaoInfo || '';
+  atualizarListaCategorias();
+  const campoCategoria = document.getElementById('categoria-conclusao-editar');
+  if (campoCategoria) campoCategoria.value = s.categoria || '';
   imagensTempConclusao = s.fotos ? [...s.fotos] : [];
 
   renderizarPreviewFotosEdicao();
@@ -1264,6 +1461,8 @@ async function confirmarEdicaoConclusao(event) {
 
   const campo = document.getElementById('relatorio-conclusao-editar');
   const relatorio = campo ? campo.value.trim() : '';
+  const campoCat = document.getElementById('categoria-conclusao-editar');
+  const categoria = canonicalizarCategoria(campoCat ? campoCat.value : '');
 
   salvandoEdicao = true;
   try {
@@ -1279,6 +1478,7 @@ async function confirmarEdicaoConclusao(event) {
     const item = servicos.find(s => Number(s.id) === Number(servicoEdicaoConclusaoId));
     if (item) {
       const antes = item.fotos || [];
+      item.categoria = categoria;
       item.conclusaoInfo = relatorio;
       item.fotos = resultado.refs;
       if (!salvarServicos(servicos)) {
@@ -1407,6 +1607,7 @@ function abrirRelatorioCompleto(id) {
     <p><strong>Local:</strong> ${esc(s.local)}</p>
     <p><strong>Responsável:</strong> ${esc(s.responsavel)}</p>
     <p><strong>Prioridade:</strong> ${esc(s.prioridade || 'Normal')}</p>
+    ${s.categoria ? `<p><strong>Categoria:</strong> ${esc(s.categoria)}</p>` : ''}
     <p><strong>Data de Criação:</strong> ${esc(s.data || 'N/A')}</p>
     ${s.observacoes ? `<p><strong>Observações:</strong> ${esc(s.observacoes)}</p>` : ''}
     ${(tempos.length || concluidoEm) ? `
@@ -1449,6 +1650,7 @@ function enviarRelatorioWhatsApp(id) {
   texto += `📌 *Serviço:* ${s.nome}\n`;
   texto += `📍 *Local:* ${s.local}\n`;
   texto += `👤 *Responsável:* ${s.responsavel}\n`;
+  if (s.categoria) texto += `🏷️ *Categoria:* ${s.categoria}\n`;
   texto += `📅 *Data:* ${s.data || 'N/A'}\n`;
   linhasTempoServico(s).forEach(([rotulo, valor]) => { texto += `⏱️ *${rotulo}:* ${valor}\n`; });
   texto += '\n';
@@ -1591,6 +1793,7 @@ function criarProximoServicoRecorrente(item) {
     responsavel: item.responsavel,
     prioridade: item.prioridade,
     observacoes: item.observacoes,
+    categoria: item.categoria || '',
     status: 'Agendado',
     agendamento,
     dataAgendada: dataISO,
