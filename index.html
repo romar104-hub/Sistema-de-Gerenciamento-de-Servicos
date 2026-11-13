@@ -109,6 +109,60 @@
       <button class="btn-primary" onclick="abrirModal()">+ Novo Serviço</button>
     </section>
 
+    <!-- FILTROS DOS SERVIÇOS CONCLUÍDOS -->
+    <section id="painel-filtros-concluidos" style="display: none; background: var(--surface-glass); border: 1px solid var(--border-glass); border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <strong>🔎 Filtrar serviços concluídos</strong>
+        <button type="button" class="btn-secondary" style="flex: none; padding: 6px 12px;" onclick="limparFiltrosConcluidos()">Limpar filtros</button>
+      </div>
+
+      <div class="form-row" style="flex-wrap: wrap;">
+        <div class="form-group" style="min-width: 150px;">
+          <label for="filtro-mes">Mês da conclusão</label>
+          <select id="filtro-mes" onchange="filtrarServicos()"><option value="">Todos os meses</option></select>
+        </div>
+        <div class="form-group" style="min-width: 150px;">
+          <label for="filtro-data-de">Concluído a partir de</label>
+          <input type="date" id="filtro-data-de" onchange="filtrarServicos()">
+        </div>
+        <div class="form-group" style="min-width: 150px;">
+          <label for="filtro-data-ate">Concluído até</label>
+          <input type="date" id="filtro-data-ate" onchange="filtrarServicos()">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="filtro-categoria">Categoria</label>
+        <select id="filtro-categoria" onchange="filtrarServicos()"><option value="">Todas as categorias</option></select>
+      </div>
+
+      <div class="form-row" style="flex-wrap: wrap;">
+        <div class="form-group" style="min-width: 170px;">
+          <label for="filtro-tempo-tipo">Tempo medido por</label>
+          <select id="filtro-tempo-tipo" onchange="filtrarServicos()">
+            <option value="execucao">Tempo em execução</option>
+            <option value="total">Do início à conclusão</option>
+            <option value="cadastro">Do cadastro à conclusão</option>
+          </select>
+        </div>
+        <div class="form-group" style="min-width: 170px;">
+          <label for="filtro-tempo-faixa">Duração</label>
+          <select id="filtro-tempo-faixa" onchange="filtrarServicos()">
+            <option value="">Qualquer duração</option>
+            <option value="ate30">Até 30 minutos</option>
+            <option value="de30a120">De 30 min a 2 horas</option>
+            <option value="de2a4h">De 2 a 4 horas</option>
+            <option value="de4a8h">De 4 a 8 horas</option>
+            <option value="de8a24h">De 8 horas a 1 dia</option>
+            <option value="de1a3d">De 1 a 3 dias</option>
+            <option value="mais3d">Mais de 3 dias</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="resumo-filtro" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;"></div>
+    </section>
+
     <div id="lista-servicos" class="services-list"></div>
   </main>
 
@@ -132,6 +186,12 @@
           <datalist id="lista-areas-autocomplete">
             <!-- As opções cadastradas serão inseridas aqui via JavaScript -->
           </datalist>
+        </div>
+
+        <div class="form-group">
+          <label for="categoria-servico">Categoria</label>
+          <input type="text" id="categoria-servico" list="lista-categorias" placeholder="Ex: Sanidade, Manutenção, Limpeza">
+          <datalist id="lista-categorias"></datalist>
         </div>
 
         <div class="form-group">
@@ -284,6 +344,10 @@
         <button type="button" class="btn-close" onclick="fecharModalEditarConclusao()">✕</button>
       </div>
       <form onsubmit="confirmarEdicaoConclusao(event)">
+        <div class="form-group">
+          <label for="categoria-conclusao-editar">Categoria</label>
+          <input type="text" id="categoria-conclusao-editar" list="lista-categorias" placeholder="Ex: Sanidade, Manutenção, Limpeza">
+        </div>
         <div class="form-group">
           <label for="relatorio-conclusao-editar">Informações / Observações da Conclusão *</label>
           <textarea id="relatorio-conclusao-editar" rows="3" required></textarea>
